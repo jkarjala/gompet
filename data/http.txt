@@ -1,0 +1,8 @@
+GET http://httpbin.org/get
+GET http://httpbin.org/status/404
+GET http://httpbin.org/status/201
+GET http://httpbin.org/status/503
+PUT http://httpbin.org/put { "some" : "put" }
+POST http://httpbin.org/post { "some" : "post" }
+DELETE http://httpbin.org/delete
+patch http://httpbin.org/patch { "some" : "patch" }

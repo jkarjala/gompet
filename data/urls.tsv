@@ -1,0 +1,4 @@
+http://httpbin.org/get
+http://httpbin.org/status/404
+http://httpbin.org/status/201
+http://httpbin.org/status/503
