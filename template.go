@@ -10,7 +10,7 @@ import (
 type VarTemplate struct {
 	Pieces  []string        // fixed pieces
 	Indices []int           // arg indices for variables between pieces
-	builder strings.Builder // internal builder
+	Builder strings.Builder // builder for Expand functions
 }
 
 // Parse parses the given string to an efficient template
@@ -42,12 +42,12 @@ func Parse(str string) *VarTemplate {
 
 // Expand constructs string with variables replaced with given arguments
 func (t *VarTemplate) Expand(args []string) string {
-	t.builder.Reset()
+	t.Builder.Reset()
 	for i, piece := range t.Pieces {
-		t.builder.WriteString(piece)
+		t.Builder.WriteString(piece)
 		if i < len(t.Indices) && t.Indices[i]-1 < len(args) {
-			t.builder.WriteString(args[t.Indices[i]-1])
+			t.Builder.WriteString(args[t.Indices[i]-1])
 		}
 	}
-	return t.builder.String()
+	return t.Builder.String()
 }

@@ -1,0 +1,3 @@
+CREATE TABLE TEST (a int, b int)
+INSERT INTO TEST (a,b) VALUES (1, 2)
+INSERT INTO TEST (a,b) VALUES (3, 4)

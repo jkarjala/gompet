@@ -13,6 +13,7 @@ import (
 	"github.com/jkarjala/gomb"
 )
 
+// Long options for the testers, short ones used by the main library
 var httpAuth = flag.String("http-auth", "", "HTTP Authorization header")
 var httpContentType = flag.String("http-content-type", "application/json", "HTTP POST/PUT content type")
 

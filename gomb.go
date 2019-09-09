@@ -85,6 +85,7 @@ func Run(clientFactory ClientFactory) {
 
 	if *cmdTemplate != "" {
 		tsvReader := csv.NewReader(reader)
+		tsvReader.Comma = '\t'
 		FeedArgs(tsvReader)
 	} else {
 		FeedCmds(reader)
