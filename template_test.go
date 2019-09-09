@@ -6,7 +6,7 @@ import (
 )
 
 func TestNewTemplate1(t *testing.T) {
-	got := NewVarTemplate("ab$1cd")
+	got := Parse("ab$1cd")
 	if !reflect.DeepEqual(got.Pieces, []string{"ab", "cd"}) {
 		t.Errorf("Pieces = %v", got.Pieces)
 	}
@@ -16,7 +16,7 @@ func TestNewTemplate1(t *testing.T) {
 }
 
 func TestNewTemplate2(t *testing.T) {
-	got := NewVarTemplate("$1cd")
+	got := Parse("$1cd")
 	if !reflect.DeepEqual(got.Pieces, []string{"", "cd"}) {
 		t.Errorf("Pieces = %v", got.Pieces)
 	}
@@ -26,7 +26,7 @@ func TestNewTemplate2(t *testing.T) {
 }
 
 func TestNewTemplate3(t *testing.T) {
-	got := NewVarTemplate("ab$1")
+	got := Parse("ab$1")
 	if !reflect.DeepEqual(got.Pieces, []string{"ab"}) {
 		t.Errorf("Pieces = %v", got.Pieces)
 	}
@@ -36,7 +36,7 @@ func TestNewTemplate3(t *testing.T) {
 }
 
 func TestNewTemplate4(t *testing.T) {
-	got := NewVarTemplate("$ab$1cd$")
+	got := Parse("$ab$1cd$")
 	if !reflect.DeepEqual(got.Pieces, []string{"$ab", "cd$"}) {
 		t.Errorf("Pieces = %v", got.Pieces)
 	}
@@ -46,7 +46,7 @@ func TestNewTemplate4(t *testing.T) {
 }
 
 func TestNewTemplate5(t *testing.T) {
-	got := NewVarTemplate("$ab$1cd$3ef$2")
+	got := Parse("$ab$1cd$3ef$2")
 	if !reflect.DeepEqual(got.Pieces, []string{"$ab", "cd", "ef"}) {
 		t.Errorf("Pieces = %v", got.Pieces)
 	}
@@ -56,7 +56,7 @@ func TestNewTemplate5(t *testing.T) {
 }
 
 func TestExpand1(t *testing.T) {
-	temp := NewVarTemplate("$ab$1cd$")
+	temp := Parse("$ab$1cd$")
 	got := temp.Expand([]string{"A"})
 	if got != "$abAcd$" {
 		t.Errorf("got = '%v'", got)
@@ -64,7 +64,7 @@ func TestExpand1(t *testing.T) {
 }
 
 func TestExpand2(t *testing.T) {
-	temp := NewVarTemplate("$3ab$1cd$2")
+	temp := Parse("$3ab$1cd$2")
 	got := temp.Expand([]string{"A", "B", "C"})
 	if got != "CabAcdB" {
 		t.Errorf("got = '%v'", got)
@@ -72,7 +72,7 @@ func TestExpand2(t *testing.T) {
 }
 
 func TestExpand3(t *testing.T) {
-	temp := NewVarTemplate("$1ab$1cd$2")
+	temp := Parse("$1ab$1cd$2")
 	got := temp.Expand([]string{"A"})
 	if got != "AabAcd" {
 		t.Errorf("got = '%v'", got)
@@ -80,7 +80,7 @@ func TestExpand3(t *testing.T) {
 }
 
 func BenchmarkExpand(b *testing.B) {
-	temp := NewVarTemplate("ab $1 cd $2 ef $3")
+	temp := Parse("ab $1 cd $2 ef $3")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = temp.Expand([]string{"A", "B", "C"})

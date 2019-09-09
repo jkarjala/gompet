@@ -22,13 +22,14 @@ func main() {
 }
 
 type myClient struct {
-	id       int
-	template *gomb.VarTemplate
+	id         int
+	template   *gomb.VarTemplate
+	httpClient *http.Client
 }
 
 func clientFactory(id int, template string) (gomb.Client, error) {
 	log.Println(id, "http init", template)
-	var client = myClient{id, gomb.NewVarTemplate(template)}
+	var client = myClient{id, gomb.Parse(template), &http.Client{}}
 	return &client, nil
 }
 
@@ -65,9 +66,8 @@ func (c *myClient) RunCommand(in gomb.RunInput) gomb.RunResult {
 		req.Header.Add("Authorization", *httpAuth)
 	}
 
-	var client = &http.Client{}
 	var start = time.Now()
-	resp, err = client.Do(req)
+	resp, err = c.httpClient.Do(req)
 	elapsed := time.Since(start).Seconds()
 	if err != nil {
 		return gomb.RunResult{Err: err, Time: elapsed}

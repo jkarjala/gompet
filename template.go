@@ -13,8 +13,8 @@ type VarTemplate struct {
 	builder strings.Builder // internal builder
 }
 
-// NewVarTemplate parses the given string to an efficient template
-func NewVarTemplate(str string) *VarTemplate {
+// Parse parses the given string to an efficient template
+func Parse(str string) *VarTemplate {
 	template := VarTemplate{Pieces: make([]string, 0), Indices: make([]int, 0)}
 	if str == "" {
 		return nil
