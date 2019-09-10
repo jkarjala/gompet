@@ -30,6 +30,7 @@ type myClient struct {
 
 func clientFactory(id int, template string) (gomb.Client, error) {
 	log.Println(id, "http init", template)
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 128
 	var client = myClient{id, gomb.Parse(template), &http.Client{}}
 	return &client, nil
 }

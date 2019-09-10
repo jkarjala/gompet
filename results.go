@@ -41,14 +41,14 @@ func (results *Results) Update(res RunResult) {
 // Report results to stdout
 func (results *Results) Report() {
 	elapsed := time.Since(results.Start)
-	cps := float64(results.Count) / elapsed.Seconds()
-	fmt.Printf("%d commands in %s, %.2f cmds/sec\n", results.Count, elapsed, cps)
-	sort.Float64s(results.Times)
-	// fmt.Printf("Times:%v\n", results.Times)
 	PrintMap("Result counts:", results.Results)
 	if len(results.Errs) > 0 {
 		PrintMap("Error counts:", results.Errs)
 	}
+	cps := float64(results.Count) / elapsed.Seconds()
+	sort.Float64s(results.Times)
+	// fmt.Printf("Times:%v\n", results.Times)
+	fmt.Printf("%d commands in %s, %.2f cmds/sec\n", results.Count, elapsed, cps)
 	fmt.Println("Latency percentiles:")
 	PrintPercentile(results.Times, 50)
 	PrintPercentile(results.Times, 90)
