@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jkarjala/gomb"
@@ -67,13 +68,31 @@ func (c *myClient) RunCommand(in gomb.RunInput) gomb.RunResult {
 
 	var res string
 	var err error
+	var count int64
 	var start = time.Now()
-	result, err := c.db.Exec(query, args...)
-	res = fmt.Sprintf("%s", result)
-	elapsed := time.Since(start).Seconds()
-	if err != nil {
-		return gomb.RunResult{Err: err, Time: elapsed}
+	if strings.ToLower(query[:6]) == "select" {
+		var rows *sql.Rows
+		rows, err = c.db.Query(query, args...)
+		if err != nil {
+			return gomb.RunResult{Err: err}
+		}
+		rowResult, err := ReadRows(rows)
+		if err != nil {
+			return gomb.RunResult{Err: err}
+		}
+		log.Printf("%d sql select result: %s", c.id, rowResult)
+
+		count = int64(len(rowResult))
+	} else {
+		var result sql.Result
+		result, err = c.db.Exec(query, args...)
+		if err != nil {
+			return gomb.RunResult{Err: err}
+		}
+		count, err = result.RowsAffected()
 	}
+	elapsed := time.Since(start).Seconds()
+	res = fmt.Sprintf("%d rows", count)
 	log.Printf("%d sql %s %s: %v", c.id, query, args, res)
 	return gomb.RunResult{Res: res, Time: elapsed}
 }
@@ -102,4 +121,36 @@ func ExpandSQL(t *gomb.VarTemplate, args []string, style rune) (string, []interf
 		}
 	}
 	return t.Builder.String(), sqlArgs
+}
+
+// ReadRows reads the resultset to an array of arrays of strings
+func ReadRows(rows *sql.Rows) ([][]string, error) {
+	var res [][]string
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	rawResult := make([][]byte, len(cols))
+	dest := make([]interface{}, len(cols))
+	for i := range rawResult {
+		dest[i] = &rawResult[i]
+	}
+
+	for rows.Next() {
+		err = rows.Scan(dest...)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]string, len(cols))
+		for i, raw := range rawResult {
+			if raw == nil {
+				result[i] = "null"
+			} else {
+				result[i] = string(raw)
+			}
+		}
+		res = append(res, result)
+	}
+	return res, nil
 }
