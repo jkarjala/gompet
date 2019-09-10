@@ -17,6 +17,7 @@ import (
 // Long options for the testers, short ones used by the main library
 var sqlDriver = flag.String("driver", "", "Database driver, 'postgres' or 'mysql'")
 var sqlURL = flag.String("url", "", "SQL Connect URL")
+var sqlDiscard = flag.Bool("discard", false, "Discard result set with mimimal memory allocation")
 
 func main() {
 	log.Println("SQL tester started")
@@ -137,19 +138,30 @@ func ReadRows(rows *sql.Rows) ([][]string, error) {
 		dest[i] = &rawResult[i]
 	}
 
+	count := 0
 	for rows.Next() {
 		err = rows.Scan(dest...)
 		if err != nil {
 			return nil, err
 		}
-		result := make([]string, len(cols))
-		for i, raw := range rawResult {
-			if raw == nil {
-				result[i] = "null"
-			} else {
-				result[i] = string(raw)
+		count++
+		if *sqlDiscard {
+			// nothing
+		} else {
+			result := make([]string, len(cols))
+			for i, raw := range rawResult {
+				if raw == nil {
+					result[i] = "null"
+				} else {
+					result[i] = string(raw)
+				}
 			}
+			res = append(res, result)
 		}
+	}
+	if *sqlDiscard {
+		result := make([]string, 1)
+		result[0] = "discarded"
 		res = append(res, result)
 	}
 	return res, nil
