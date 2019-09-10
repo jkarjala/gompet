@@ -74,7 +74,7 @@ func PrintMap(heading string, m map[string]int64) {
 
 // PrintPercentile outputs the percent's percentile from input
 func PrintPercentile(input []float64, percent float64) {
-	fmt.Printf("%2.0f%%\t%f\n", percent, Percentile(input, percent))
+	fmt.Printf("%3.0f%%\t%.2f ms\n", percent, Percentile(input, percent)*1000)
 }
 
 // Percentile finds the value at given percent in the input which must be pre-sorted
