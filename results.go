@@ -55,7 +55,7 @@ func (results *Results) Report() {
 	cps := float64(results.Count) / elapsed
 	sort.Float64s(results.Times)
 	// fmt.Printf("Times:%v\n", results.Times)
-	fmt.Printf("%d commands in %0.1f, %.2f cmds/sec\n", results.Count, elapsed, cps)
+	fmt.Printf("%d commands in %0.1f seconds, %.2f cmds/sec\n", results.Count, elapsed, cps)
 	fmt.Println("Latency percentiles:")
 	PrintPercentile(results.Times, 50)
 	PrintPercentile(results.Times, 90)
