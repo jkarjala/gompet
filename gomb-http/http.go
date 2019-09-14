@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
@@ -14,8 +15,9 @@ import (
 )
 
 // Long options for the testers, short ones used by the main library
-var httpAuth = flag.String("http-auth", "", "HTTP Authorization header")
-var httpContentType = flag.String("http-content-type", "application/json", "HTTP POST/PUT content type")
+var httpAuth = flag.String("auth", "", "HTTP Authorization header")
+var httpContentType = flag.String("content-type", "application/json", "HTTP body content type")
+var httpTimeout = flag.Int("timeout", 10, "HTTP Client timeout")
 
 func main() {
 	log.Println("HTTP tester started")
@@ -30,12 +32,22 @@ type myClient struct {
 
 func clientFactory(id int, template string) (gomb.Client, error) {
 	log.Println(id, "http init", template)
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 128
-	var client = myClient{id, gomb.Parse(template), &http.Client{}}
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+		MaxIdleConnsPerHost: *gomb.NumClients,
+		DisableCompression:  false,
+		DisableKeepAlives:   false,
+	}
+	tr.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
+	httpClient := &http.Client{Transport: tr, Timeout: time.Duration(*httpTimeout) * time.Second}
+	var client = myClient{id, gomb.Parse(template), httpClient}
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in gomb.RunInput) gomb.RunResult {
+func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 	cmd := in.Cmd
 	if c.template != nil {
 		cmd = c.template.Expand(in.Args)
@@ -58,7 +70,7 @@ func (c *myClient) RunCommand(in gomb.RunInput) gomb.RunResult {
 
 	req, err = http.NewRequest(primitive, url, strings.NewReader(body))
 	if err != nil {
-		return gomb.RunResult{Err: err}
+		return &gomb.RunResult{Err: err}
 	}
 
 	if body != "" {
@@ -72,7 +84,7 @@ func (c *myClient) RunCommand(in gomb.RunInput) gomb.RunResult {
 	resp, err = c.httpClient.Do(req)
 	elapsed := time.Since(start).Seconds()
 	if err != nil {
-		return gomb.RunResult{Err: err, Time: elapsed}
+		return &gomb.RunResult{Err: err, Time: elapsed}
 	}
 	defer resp.Body.Close()
 
@@ -85,8 +97,10 @@ func (c *myClient) RunCommand(in gomb.RunInput) gomb.RunResult {
 		io.Copy(ioutil.Discard, resp.Body)
 	}
 	var res = resp.Status
-	log.Printf("%d http %s: %s", c.id, cmd, res)
-	return gomb.RunResult{Res: res, Time: elapsed}
+	if *gomb.Verbose {
+		log.Printf("%d http %s: %s", c.id, cmd, res)
+	}
+	return &gomb.RunResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {

@@ -27,8 +27,13 @@ func NewResults() *Results {
 }
 
 // Update results from one Run
-func (results *Results) Update(res RunResult) {
+func (results *Results) Update(res *RunResult, progress bool) {
 	results.Count++
+	if progress && (results.Count%10000) == 0 {
+		elapsed := time.Since(results.Start).Seconds()
+		cps := float64(results.Count) / elapsed
+		fmt.Printf("%d commands in %0.1f seconds, %.2f cmds/sec\r", results.Count, elapsed, cps)
+	}
 	results.Times = append(results.Times, res.Time)
 	if res.Res != "" {
 		results.Results[res.Res]++
@@ -36,19 +41,21 @@ func (results *Results) Update(res RunResult) {
 	if res.Err != nil {
 		results.Errs[fmt.Sprintf("%s", res.Err)]++
 	}
+
 }
 
 // Report results to stdout
 func (results *Results) Report() {
-	elapsed := time.Since(results.Start)
+	elapsed := time.Since(results.Start).Seconds()
+	fmt.Println("")
 	PrintMap("Result counts:", results.Results)
 	if len(results.Errs) > 0 {
 		PrintMap("Error counts:", results.Errs)
 	}
-	cps := float64(results.Count) / elapsed.Seconds()
+	cps := float64(results.Count) / elapsed
 	sort.Float64s(results.Times)
 	// fmt.Printf("Times:%v\n", results.Times)
-	fmt.Printf("%d commands in %s, %.2f cmds/sec\n", results.Count, elapsed, cps)
+	fmt.Printf("%d commands in %0.1f, %.2f cmds/sec\n", results.Count, elapsed, cps)
 	fmt.Println("Latency percentiles:")
 	PrintPercentile(results.Times, 50)
 	PrintPercentile(results.Times, 90)

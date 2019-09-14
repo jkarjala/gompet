@@ -9,9 +9,13 @@ import (
 	"bufio"
 	"encoding/csv"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
+	_ "net/http" // for profiler
+	_ "net/http/pprof"
 	"os"
 	"strings"
 	"sync"
@@ -19,8 +23,14 @@ import (
 
 var filename = flag.String("f", "-", "Input file name, stdin if not given or '-'")
 var cmdTemplate = flag.String("t", "", "Command template, $1-$9 refers to input file columns (tab-separated)")
-var numClients = flag.Int("c", 1, "Number of parallel clients executing commands")
-var verbose = flag.Bool("v", false, "Verbose logging")
+var progress = flag.Bool("P", false, "Report progress after every 10k commands")
+var profile = flag.Bool("pprof", false, "enable pprof web server")
+
+// NumClients exported for command implementations
+var NumClients = flag.Int("c", 1, "Number of parallel clients executing commands")
+
+// Verbose exported for command implementations
+var Verbose = flag.Bool("v", false, "Verbose logging")
 
 // RunInput is given to client once per input file line
 type RunInput struct {
@@ -37,7 +47,7 @@ type RunResult struct {
 
 // Client is the interface the client must implement
 type Client interface {
-	RunCommand(in RunInput) RunResult
+	RunCommand(in *RunInput) *RunResult
 	Term()
 }
 
@@ -62,17 +72,25 @@ func OpenInput() *bufio.Reader {
 }
 
 var clients []Client
-var inputChan = make(chan RunInput)
-var outputChan = make(chan RunResult)
+var inputChan = make(chan *RunInput)
+var outputChan = make(chan *RunResult)
 var waitGroup sync.WaitGroup
 var done = make(chan bool)
 
 // Run function executes the benchmark and reports results
 func Run(clientFactory ClientFactory) {
 	flag.Parse()
-	if !*verbose {
-		log.SetOutput(ioutil.Discard)
+	if *profile {
+		go func() {
+			fmt.Println("Profiler active in http://localhost:4221/debug/pprof")
+			http.ListenAndServe("localhost:4221", nil)
+		}()
+	}
+
+	if !*Verbose {
+		// it seems log still does sprintfs, check for *Verbose in loops
 		log.SetFlags(0)
+		log.SetOutput(ioutil.Discard)
 	}
 	reader := OpenInput()
 
@@ -100,13 +118,18 @@ func Run(clientFactory ClientFactory) {
 	<-done
 
 	results.Report()
+
+	if *profile {
+		fmt.Println("Run ready, ctrl-c to exit")
+		select {} // wait forever
+	}
 }
 
 // LaunchClients creates clients and starts the go routines for data processing
 func LaunchClients(clientFactory ClientFactory) error {
-	clients = make([]Client, *numClients)
+	clients = make([]Client, *NumClients)
 	var err error
-	for i := 0; i < *numClients; i++ {
+	for i := 0; i < *NumClients; i++ {
 		clients[i], err = clientFactory(i, *cmdTemplate)
 		if err != nil {
 			return err
@@ -134,7 +157,7 @@ func ClientRoutine(id int, client Client) {
 func CollectResults(results *Results) {
 	log.Println("Waiting results")
 	for res := range outputChan {
-		results.Update(res)
+		results.Update(res, *progress)
 	}
 	log.Println("Results collected")
 	close(done)
@@ -152,7 +175,7 @@ func FeedCmds(reader *bufio.Reader) error {
 			return err
 		}
 		cmd = strings.Trim(cmd, "\n")
-		inputChan <- RunInput{Cmd: cmd}
+		inputChan <- &RunInput{Cmd: cmd}
 	}
 	return nil
 }
@@ -168,8 +191,10 @@ func FeedArgs(reader *csv.Reader) error {
 		if err != nil {
 			return err
 		}
-		log.Println("sending", row)
-		inputChan <- RunInput{Args: row}
+		if *Verbose {
+			log.Println("sending", row)
+		}
+		inputChan <- &RunInput{Args: row}
 	}
 	return nil
 }

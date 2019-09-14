@@ -19,6 +19,8 @@ var sqlDriver = flag.String("driver", "", "Database driver, 'postgres' or 'mysql
 var sqlURL = flag.String("url", "", "SQL Connect URL")
 var sqlDiscard = flag.Bool("discard", false, "Discard result set with mimimal memory allocation")
 
+var discardResult = [][]string{{"discarded"}}
+
 func main() {
 	log.Println("SQL tester started")
 	gomb.Run(clientFactory)
@@ -60,7 +62,7 @@ func clientFactory(id int, template string) (gomb.Client, error) {
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in gomb.RunInput) gomb.RunResult {
+func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 	query := in.Cmd
 	var args []interface{}
 	if c.template != nil {
@@ -75,31 +77,35 @@ func (c *myClient) RunCommand(in gomb.RunInput) gomb.RunResult {
 		var rows *sql.Rows
 		rows, err = c.db.Query(query, args...)
 		if err != nil {
-			return gomb.RunResult{Err: err}
+			return &gomb.RunResult{Err: err}
 		}
 		rowResult, err := ReadRows(rows)
 		if err != nil {
-			return gomb.RunResult{Err: err}
+			return &gomb.RunResult{Err: err}
 		}
-		log.Printf("%d sql select result: %s", c.id, rowResult)
-
+		if *gomb.Verbose {
+			log.Printf("%d sql select result: %s", c.id, rowResult)
+		}
 		count = int64(len(rowResult))
 	} else {
 		var result sql.Result
 		result, err = c.db.Exec(query, args...)
 		if err != nil {
-			return gomb.RunResult{Err: err}
+			return &gomb.RunResult{Err: err}
 		}
 		count, err = result.RowsAffected()
 	}
 	elapsed := time.Since(start).Seconds()
 	res = fmt.Sprintf("%d rows", count)
-	log.Printf("%d sql %s %s: %v", c.id, query, args, res)
-	return gomb.RunResult{Res: res, Time: elapsed}
+	if *gomb.Verbose {
+		log.Printf("%d sql %s %s: %v", c.id, query, args, res)
+	}
+	return &gomb.RunResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {
 	log.Println(c.id, "sql term")
+	c.db.Close()
 }
 
 // ExpandSQL constructs SQL query string and arguments sorted to match it
@@ -146,7 +152,7 @@ func ReadRows(rows *sql.Rows) ([][]string, error) {
 		}
 		count++
 		if *sqlDiscard {
-			// nothing
+			// discard result after reading
 		} else {
 			result := make([]string, len(cols))
 			for i, raw := range rawResult {
@@ -160,9 +166,7 @@ func ReadRows(rows *sql.Rows) ([][]string, error) {
 		}
 	}
 	if *sqlDiscard {
-		result := make([]string, 1)
-		result[0] = "discarded"
-		res = append(res, result)
+		res = discardResult
 	}
 	return res, nil
 }
