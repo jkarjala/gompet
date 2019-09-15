@@ -1,9 +1,9 @@
 // Copyright 2019 Jari Karjala - www.jpkware.com
 
-// Package gomb (Go Multi-purpose Benchmark) provides a multi-core benchmarking
-// skeleton for use in different benchmarking clients. See sub-folders for some
-// example command line clients.
-package gomb
+// Package gompet (Go Multi-purpose Performance Evaluation Tool) provides a multi-core
+// benchmarking skeleton for use in different benchmarking clients.
+// See sub-folders for some example command line clients.
+package gompet
 
 import (
 	"bufio"
@@ -22,7 +22,7 @@ import (
 )
 
 var filename = flag.String("f", "-", "Input file name, stdin if not given or '-'")
-var cmdTemplate = flag.String("t", "", "Command template, $1-$9 refers to input file columns (tab-separated)")
+var cmdTemplate = flag.String("t", "", "Command template, $1-$9 refers to tab-separated columns in input")
 var progress = flag.Bool("P", false, "Report progress after every 10k commands")
 var profile = flag.Bool("pprof", false, "enable pprof web server")
 

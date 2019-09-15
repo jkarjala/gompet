@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jkarjala/gomb"
+	"github.com/jkarjala/gompet"
 	"github.com/valyala/fasthttp"
 )
 
@@ -18,28 +18,28 @@ var httpContentType = flag.String("content-type", "application/json", "HTTP body
 
 func main() {
 	log.Println("FastHTTP tester started")
-	gomb.Run(clientFactory)
+	gompet.Run(clientFactory)
 }
 
 type myClient struct {
 	id         int
-	template   *gomb.VarTemplate
+	template   *gompet.VarTemplate
 	req        *fasthttp.Request
 	res        *fasthttp.Response
 	httpClient *fasthttp.Client
 }
 
-func clientFactory(id int, template string) (gomb.Client, error) {
+func clientFactory(id int, template string) (gompet.Client, error) {
 	log.Println(id, "fasthttp init", template)
 
 	var req = fasthttp.AcquireRequest()
 	var res = fasthttp.AcquireResponse()
 	var httpClient = &fasthttp.Client{}
-	var client = myClient{id, gomb.Parse(template), req, res, httpClient}
+	var client = myClient{id, gompet.Parse(template), req, res, httpClient}
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
+func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	cmd := in.Cmd
 	if c.template != nil {
 		cmd = c.template.Expand(in.Args)
@@ -75,7 +75,7 @@ func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 	err = c.httpClient.Do(c.req, c.res)
 	elapsed := time.Since(start).Seconds()
 	if err != nil {
-		return &gomb.RunResult{Err: err, Time: elapsed}
+		return &gompet.RunResult{Err: err, Time: elapsed}
 	}
 	status := c.res.StatusCode()
 	resBody := c.res.Body()
@@ -84,10 +84,10 @@ func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 	}
 	elapsed = time.Since(start).Seconds() // final time will include body read time
 	var res = fmt.Sprintf("%d %s", status, http.StatusText(status))
-	if *gomb.Verbose {
+	if *gompet.Verbose {
 		log.Printf("%d fasthttp %s '%s' body '%s'", c.id, cmd, res, string(resBody))
 	}
-	return &gomb.RunResult{Res: res, Time: elapsed}
+	return &gompet.RunResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jkarjala/gomb"
+	"github.com/jkarjala/gompet"
 )
 
 // Long options for the testers, short ones used by the main library
@@ -21,33 +21,33 @@ var httpTimeout = flag.Int("timeout", 10, "HTTP Client timeout")
 
 func main() {
 	log.Println("HTTP tester started")
-	gomb.Run(clientFactory)
+	gompet.Run(clientFactory)
 }
 
 type myClient struct {
 	id         int
-	template   *gomb.VarTemplate
+	template   *gompet.VarTemplate
 	httpClient *http.Client
 }
 
-func clientFactory(id int, template string) (gomb.Client, error) {
+func clientFactory(id int, template string) (gompet.Client, error) {
 	log.Println(id, "http init", template)
 
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
-		MaxIdleConnsPerHost: *gomb.NumClients,
+		MaxIdleConnsPerHost: *gompet.NumClients,
 		DisableCompression:  false,
 		DisableKeepAlives:   false,
 	}
 	tr.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
 	httpClient := &http.Client{Transport: tr, Timeout: time.Duration(*httpTimeout) * time.Second}
-	var client = myClient{id, gomb.Parse(template), httpClient}
+	var client = myClient{id, gompet.Parse(template), httpClient}
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
+func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	cmd := in.Cmd
 	if c.template != nil {
 		cmd = c.template.Expand(in.Args)
@@ -70,7 +70,7 @@ func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 
 	req, err = http.NewRequest(primitive, url, strings.NewReader(body))
 	if err != nil {
-		return &gomb.RunResult{Err: err}
+		return &gompet.RunResult{Err: err}
 	}
 
 	if body != "" {
@@ -84,7 +84,7 @@ func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 	resp, err = c.httpClient.Do(req)
 	elapsed := time.Since(start).Seconds()
 	if err != nil {
-		return &gomb.RunResult{Err: err, Time: elapsed}
+		return &gompet.RunResult{Err: err, Time: elapsed}
 	}
 	defer resp.Body.Close()
 
@@ -98,10 +98,10 @@ func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 	}
 	elapsed = time.Since(start).Seconds() // final time will include body read time
 	var res = resp.Status
-	if *gomb.Verbose {
+	if *gompet.Verbose {
 		log.Printf("%d http %s: %s", c.id, cmd, res)
 	}
-	return &gomb.RunResult{Res: res, Time: elapsed}
+	return &gompet.RunResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {

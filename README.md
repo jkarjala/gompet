@@ -1,16 +1,16 @@
-# GOMB - Go Multi-purpose Benchmark
+# Gompet - Go Multi-purpose Performance Evaluation Tool
 
-GOMB is a multi-threaded multi-purpose benchmark runner which can quickly generate 
-heavy load on servers using pre-defined but varied input patterns. 
+Gompet is a multi-core multi-purpose benchmark framework which can quickly generate 
+heavy load on servers using pre-defined input patterns. 
 
-GOMB currently includes a standard HTTP client, FastHTTP client and SQL client for PostgreSQL.
+Gompet currently includes a standard HTTP client, FastHTTP client and SQL client for PostgreSQL.
 
-It is easy to add new clients and get the worker pool and statistics reporting out of the box.
+It is easy to add new clients and get the worker pool and statistics reporting out of the box. The library github.com/jkarjala/gompet can also be imported to applications outside of this repo.
 
 ## Installation
 
 ```
-go get -u github.com/jkarjala/gomb
+go get -u github.com/jkarjala/gompet/...
 ```
 
 ## Usage
@@ -23,8 +23,10 @@ See data folder for a few input file examples.
 
 ### HTTP and FastHTTP Clients
 
+The gompet-http uses the standard Go http library, while the gompet-fasthttp uses the fasthttp library which is more performant but only supports HTTP/1 and requires valid certificates.
+
 ```
-Usage of gomb-http (or gomb-fasthttp):
+Usage of gompet-http and gompet-fasthttp:
   -P    Report progress after every 10k commands
   -auth string
         HTTP Authorization header
@@ -49,10 +51,28 @@ The Command syntax is:
 HTTP-VERB URL Body-as-single-line-if-needed
 ```
 
+Examples (after installation), run HTTP commands 
+from http.txt with verbose output:
+
+```
+gompet-http -f testdata/http.txt -v
+```
+
+Run HTTP commands with template and actual URLs from urls.tsv 
+with 2 parallel clients: 
+```
+gompet-http -f testdata/urls.tsv -t 'GET $1' -c 2
+```
+
+Send single command via stdin to geompet-fasthttp and show verbose output:
+```
+echo 'PUT http://httpbin.org/put { "some" : "put" }' | gompet-fasthttp -v
+```
+
 ### SQL Client
 
 ```
-Usage of gomb-sql:
+Usage of gompet-sql:
   -P    Report progress after every 10k commands
   -c int
         Number of parallel clients executing commands (default 1)
@@ -81,6 +101,6 @@ The Command syntax is SQL statement.
 
 ## Licence
 
-GOMB Copyright 2019 [Jari Karjala](https://www.jarikarjala.com/). 
+Gompet Copyright 2019 [Jari Karjala](https://www.jarikarjala.com/). 
 
-Licensed under [GNU General Public License v3](LICENSE).
+Gompet is licensed under [GNU General Public License v3](LICENSE).

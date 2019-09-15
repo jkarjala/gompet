@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jkarjala/gomb"
+	"github.com/jkarjala/gompet"
 
 	_ "github.com/lib/pq"
 )
@@ -23,17 +23,17 @@ var discardResult = [][]string{{"discarded"}}
 
 func main() {
 	log.Println("SQL tester started")
-	gomb.Run(clientFactory)
+	gompet.Run(clientFactory)
 }
 
 type myClient struct {
 	id       int
-	template *gomb.VarTemplate
+	template *gompet.VarTemplate
 	style    rune
 	db       *sql.DB
 }
 
-func clientFactory(id int, template string) (gomb.Client, error) {
+func clientFactory(id int, template string) (gompet.Client, error) {
 	log.Println(id, "sql init", template)
 	if *sqlDriver == "" || *sqlURL == "" {
 		return nil, errors.New("Missing --driver and/or --url")
@@ -58,11 +58,11 @@ func clientFactory(id int, template string) (gomb.Client, error) {
 		return nil, err
 	}
 
-	var client = myClient{id, gomb.Parse(template), style, db}
+	var client = myClient{id, gompet.Parse(template), style, db}
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
+func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	query := in.Cmd
 	var args []interface{}
 	if c.template != nil {
@@ -77,13 +77,13 @@ func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 		var rows *sql.Rows
 		rows, err = c.db.Query(query, args...)
 		if err != nil {
-			return &gomb.RunResult{Err: err}
+			return &gompet.RunResult{Err: err}
 		}
 		rowResult, err := ReadRows(rows)
 		if err != nil {
-			return &gomb.RunResult{Err: err}
+			return &gompet.RunResult{Err: err}
 		}
-		if *gomb.Verbose {
+		if *gompet.Verbose {
 			log.Printf("%d sql select result: %s", c.id, rowResult)
 		}
 		count = int64(len(rowResult))
@@ -91,16 +91,16 @@ func (c *myClient) RunCommand(in *gomb.RunInput) *gomb.RunResult {
 		var result sql.Result
 		result, err = c.db.Exec(query, args...)
 		if err != nil {
-			return &gomb.RunResult{Err: err}
+			return &gompet.RunResult{Err: err}
 		}
 		count, err = result.RowsAffected()
 	}
 	elapsed := time.Since(start).Seconds()
 	res = fmt.Sprintf("%d rows", count)
-	if *gomb.Verbose {
+	if *gompet.Verbose {
 		log.Printf("%d sql %s %s: %v", c.id, query, args, res)
 	}
-	return &gomb.RunResult{Res: res, Time: elapsed}
+	return &gompet.RunResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {
@@ -109,7 +109,7 @@ func (c *myClient) Term() {
 }
 
 // ExpandSQL constructs SQL query string and arguments sorted to match it
-func ExpandSQL(t *gomb.VarTemplate, args []string, style rune) (string, []interface{}) {
+func ExpandSQL(t *gompet.VarTemplate, args []string, style rune) (string, []interface{}) {
 	var sqlArgs = make([]interface{}, 0)
 	t.Builder.Reset()
 	for i, piece := range t.Pieces {

@@ -1,4 +1,4 @@
-package gomb
+package gompet
 
 import (
 	"strings"
