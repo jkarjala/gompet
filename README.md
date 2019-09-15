@@ -3,40 +3,81 @@
 GOMB is a multi-threaded multi-purpose benchmark runner which can quickly generate 
 heavy load on servers using pre-defined but varied input patterns. 
 
-The input commands are either read from file or stdin as-is, or a template with 
-variables is given and the variable values are read from file or stdin.
+GOMB currently includes a standard HTTP client, FastHTTP client and SQL client for PostgreSQL.
 
-GOMB currently has a generic HTTP client, 
-SQL client is under development.
-
-See data folder for a few input file examples.
+It is easy to add new clients and get the worker pool and statistics reporting out of the box.
 
 ## Installation
 
-go install bitbucket.com/jkarjala/gomb
+```
+go get -u github.com/jkarjala/gomb
+```
 
 ## Usage
 
+By default the clients read commands from standard input, one command per line. Use -f to read from file instead.
+
+Alternatively, a template with variables $1 - $9 can be given with -t option. In this case, the input must be tab-separated-values to be inserted to the variables to construct the command.
+
+See data folder for a few input file examples.
+
+### HTTP and FastHTTP Clients
+
 ```
-Usage of gomb-http:
+Usage of gomb-http (or gomb-fasthttp):
+  -P    Report progress after every 10k commands
+  -auth string
+        HTTP Authorization header
   -c int
         Number of parallel clients executing commands (default 1)
+  -content-type string
+        HTTP body content type (default "application/json")
   -f string
         Input file name, stdin if not given or '-' (default "-")
-  -http-auth string
-        HTTP Authorization header
-  -http-content-type string
-        HTTP POST/PUT content type (default "application/json")
+  -pprof
+        enable pprof web server
   -t string
         Command template, $1-$9 refers to input file columns (tab-separated)
+  -timeout int
+        HTTP Client timeout (default 10)
   -v    Verbose logging
 ```
 
-The command syntax is:
+The Command syntax is:
 
 ```
-HTTP-VERB   URL     Body-if-needed
+HTTP-VERB URL Body-as-single-line-if-needed
 ```
+
+### SQL Client
+
+```
+Usage of gomb-sql:
+  -P    Report progress after every 10k commands
+  -c int
+        Number of parallel clients executing commands (default 1)
+  -discard
+        Discard result set with mimimal memory allocation
+  -driver string
+        Database driver, only 'postgres' supported today
+  -f string
+        Input file name, stdin if not given or '-' (default "-")
+  -pprof
+        enable pprof web server
+  -t string
+        Command template, $1-$9 refers to input file columns (tab-separated)
+  -url string
+        SQL Connect URL
+  -v    Verbose logging
+```
+
+The Connect URL syntax is 
+
+```
+postgres://user:pass@hostname/db?sslmode=disable
+```
+
+The Command syntax is SQL statement.
 
 ## Licence
 
