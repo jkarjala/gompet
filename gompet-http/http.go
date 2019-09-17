@@ -59,7 +59,7 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 
 	var ss = strings.SplitN(cmd, " ", 3)
 	if len(ss) < 2 {
-		panic(fmt.Sprintf("Invalid command %s, HTTP verb and URL required", cmd))
+		return &gompet.RunResult{Err: fmt.Errorf("Invalid command %s, HTTP verb and URL required", cmd)}
 	}
 	var primitive = strings.Trim(ss[0], "\r\t ")
 	var url = strings.Trim(ss[1], "\r\t ")

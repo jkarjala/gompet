@@ -21,10 +21,14 @@ import (
 	"sync"
 )
 
-var filename = flag.String("f", "-", "Input file name, stdin if not given or '-'")
+var filename = flag.String("f", "", "Input file name, stdin if not given or '-'")
 var cmdTemplate = flag.String("t", "", "Command template, $1-$9 refers to tab-separated columns in input")
 var progress = flag.Bool("P", false, "Report progress after every 10k commands")
 var profile = flag.Bool("pprof", false, "enable pprof web server")
+
+//var repeat = flag.Int("r", 0, "Repeat the input N times, does not work with stdin")
+//var qps = flag.Int("R", 0, "Rate limit each client to N queries/sec")
+//var snapshot = flag.Int("D", 0, "Display and discard percentiles every N minutes to save memory")
 
 // NumClients exported for command implementations
 var NumClients = flag.Int("c", 1, "Number of parallel clients executing commands")
@@ -59,16 +63,17 @@ func init() {
 }
 
 // OpenInput opens the input file for reading
-func OpenInput() *bufio.Reader {
+func OpenInput() io.Reader {
 	var err error
 	var file = os.Stdin
-	if *filename != "-" {
+	if *filename != "" && *filename != "-" {
 		file, err = os.Open(*filename)
 		if err != nil {
-			panic(err)
+			fmt.Println(err)
+			os.Exit(2)
 		}
 	}
-	return bufio.NewReader(file)
+	return io.Reader(file)
 }
 
 var clients []Client
@@ -92,11 +97,22 @@ func Run(clientFactory ClientFactory) {
 		log.SetFlags(0)
 		log.SetOutput(ioutil.Discard)
 	}
-	reader := OpenInput()
+
+	var reader io.Reader
+	if flag.NArg() > 0 {
+		args := strings.Join(flag.Args(), "\n") + "\n"
+		reader = strings.NewReader(args)
+	} else if *filename != "" {
+		reader = OpenInput()
+	} else {
+		fmt.Println("Either 'command line' or a -f filename must be given")
+		os.Exit(1)
+	}
 
 	err := LaunchClients(clientFactory)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		os.Exit(3)
 	}
 	var results = NewResults()
 	go CollectResults(results)
@@ -164,10 +180,11 @@ func CollectResults(results *Results) {
 }
 
 // FeedCmds feeds the clients with command lines
-func FeedCmds(reader *bufio.Reader) error {
+func FeedCmds(reader io.Reader) error {
 	log.Println("Feeding commands")
+	bufreader := bufio.NewReader(reader)
 	for {
-		cmd, err := reader.ReadString('\n')
+		cmd, err := bufreader.ReadString('\n')
 		if err == io.EOF {
 			break
 		}
