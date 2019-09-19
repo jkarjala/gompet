@@ -79,7 +79,7 @@ func OpenInput() (io.Reader, *os.File) {
 		file, err = os.Open(*filename)
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(2)
+			os.Exit(1)
 		}
 		return io.Reader(file), file
 	}
@@ -108,10 +108,14 @@ func Run(clientFactory ClientFactory) {
 		log.SetOutput(ioutil.Discard)
 	}
 
+	if *filename == "-" && *repeat > 1 {
+		fmt.Println("Cannot use -r with stdin")
+		os.Exit(1)
+	}
 	err := LaunchClients(clientFactory)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(3)
+		os.Exit(2)
 	}
 	var results = NewResults()
 	go CollectResults(results)
