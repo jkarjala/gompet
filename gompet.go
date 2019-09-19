@@ -21,12 +21,13 @@ import (
 	"sync"
 )
 
-var filename = flag.String("f", "", "Input file name, stdin if not given or '-'")
+var filename = flag.String("f", "", "Input file name, stdin if '-'")
 var cmdTemplate = flag.String("t", "", "Command template, $1-$9 refers to tab-separated columns in input")
 var progress = flag.Bool("P", false, "Report progress after every 10k commands")
 var profile = flag.Bool("pprof", false, "enable pprof web server")
 
-//var repeat = flag.Int("r", 0, "Repeat the input N times, does not work with stdin")
+var repeat = flag.Int("r", 1, "Repeat the input N times, does not work with stdin")
+
 //var qps = flag.Int("R", 0, "Rate limit each client to N queries/sec")
 //var snapshot = flag.Int("D", 0, "Display and discard percentiles every N minutes to save memory")
 
@@ -63,17 +64,26 @@ func init() {
 }
 
 // OpenInput opens the input file for reading
-func OpenInput() io.Reader {
+func OpenInput() (io.Reader, *os.File) {
 	var err error
 	var file = os.Stdin
-	if *filename != "" && *filename != "-" {
+	if flag.NArg() > 0 {
+		args := strings.Join(flag.Args(), "\n") + "\n"
+		reader := strings.NewReader(args)
+		return reader, nil
+	}
+	if *filename == "-" {
+		return io.Reader(file), nil
+	}
+	if *filename != "" {
 		file, err = os.Open(*filename)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(2)
 		}
+		return io.Reader(file), file
 	}
-	return io.Reader(file)
+	return nil, nil
 }
 
 var clients []Client
@@ -98,17 +108,6 @@ func Run(clientFactory ClientFactory) {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	var reader io.Reader
-	if flag.NArg() > 0 {
-		args := strings.Join(flag.Args(), "\n") + "\n"
-		reader = strings.NewReader(args)
-	} else if *filename != "" {
-		reader = OpenInput()
-	} else {
-		fmt.Println("Either 'command line' or a -f filename must be given")
-		os.Exit(1)
-	}
-
 	err := LaunchClients(clientFactory)
 	if err != nil {
 		fmt.Println(err)
@@ -117,15 +116,16 @@ func Run(clientFactory ClientFactory) {
 	var results = NewResults()
 	go CollectResults(results)
 
-	if *cmdTemplate != "" {
-		tsvReader := csv.NewReader(reader)
-		tsvReader.Comma = '\t'
-		FeedArgs(tsvReader)
-	} else {
-		FeedCmds(reader)
+	for loop := 0; loop < *repeat; loop++ {
+		reader, file := OpenInput()
+		if reader == nil {
+			fmt.Println("Either 'command line' or -f filename must be given")
+			os.Exit(1)
+		}
+		feedInput(reader, file)
 	}
-
 	close(inputChan)
+
 	log.Println("Waiting clients to finish")
 	waitGroup.Wait()
 	close(outputChan)
@@ -138,6 +138,20 @@ func Run(clientFactory ClientFactory) {
 	if *profile {
 		fmt.Println("Run ready, ctrl-c to exit")
 		select {} // wait forever
+	}
+}
+
+func feedInput(reader io.Reader, file *os.File) {
+	if file != nil {
+		defer file.Close()
+	}
+
+	if *cmdTemplate != "" {
+		tsvReader := csv.NewReader(reader)
+		tsvReader.Comma = '\t'
+		FeedArgs(tsvReader)
+	} else {
+		FeedCmds(reader)
 	}
 }
 

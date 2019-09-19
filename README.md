@@ -1,7 +1,8 @@
 # Gompet - Go Multi-purpose Performance Evaluation Tool
 
-Gompet is a multi-core multi-purpose benchmark framework which can quickly generate 
-heavy load on servers using pre-defined input patterns. 
+Gompet is a multi-core multi-purpose performance evaluation tool which can quickly generate 
+heavy load on servers using pre-defined input patterns. It is useful for benchmarking as
+well as load testing servers.
 
 Gompet currently includes a standard HTTP client, FastHTTP client and SQL client for PostgreSQL.
 
@@ -15,9 +16,11 @@ go get -u github.com/jkarjala/gompet/...
 
 ## Usage
 
-By default the clients read commands from standard input, one command per line. Use -f to read from file instead.
+The test clients receive commands from command line (each argument is a command), 
+or from a file with paramter -f (each line is a command). Use "-" as filename for stdin.
 
-Alternatively, a template with variables $1 - $9 can be given with -t option. In this case, the input must be tab-separated-values to be inserted to the variables to construct the command.
+Alternatively, a template with variables $1 - $9 can be given with -t option. In this case, the input 
+file/stdin must contain tab-separated-values to be inserted to the variables to construct the command.
 
 See data folder for a few input file examples.
 
@@ -35,38 +38,42 @@ Usage of gompet-http and gompet-fasthttp:
   -content-type string
         HTTP body content type (default "application/json")
   -f string
-        Input file name, stdin if not given or '-' (default "-")
+        Input file name, stdin if not given or '-'
   -pprof
         enable pprof web server
+  -r int
+        Repeat the input N times, does not work with stdin (default 1)
   -t string
-        Command template, $1-$9 refers to input file columns (tab-separated)
+        Command template, $1-$9 refers to tab-separated columns in input
   -timeout int
         HTTP Client timeout (default 10)
   -v    Verbose logging
+
 ```
 
-The Command syntax is:
+The Command syntax for http clients is:
 
 ```
 HTTP-VERB URL Body-as-single-line-if-needed
 ```
 
-Examples (after installation), run HTTP commands 
-from http.txt with verbose output:
+Examples (after installation)
+
+Run a single HTTP PUT command via command line with geompet-fasthttp and show verbose output:
+```
+gompet-fasthttp -v 'PUT http://httpbin.org/put { "some" : "put" }'
+```
+
+Run HTTP commands from http.txt with verbose output:
 
 ```
 gompet-http -f testdata/http.txt -v
 ```
 
-Run HTTP commands with template and actual URLs from urls.tsv 
-with 2 parallel clients: 
+Run HTTP commands with template and the URLs from urls.tsv 
+with 2 parallel clients and repeat the file twice: 
 ```
-gompet-http -f testdata/urls.tsv -t 'GET $1' -c 2
-```
-
-Send single command via stdin to geompet-fasthttp and show verbose output:
-```
-echo 'PUT http://httpbin.org/put { "some" : "put" }' | gompet-fasthttp -v
+gompet-http -f testdata/urls.tsv -t 'GET $1' -c 2 -r 2
 ```
 
 ### SQL Client
@@ -97,7 +104,7 @@ The Connect URL syntax is
 postgres://user:pass@hostname/db?sslmode=disable
 ```
 
-The Command syntax is SQL statement.
+The Command syntax for SQL client is a single SQL statement.
 
 ## Licence
 

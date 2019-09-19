@@ -17,7 +17,7 @@ import (
 // Long options for the testers, short ones used by the main library
 var httpAuth = flag.String("auth", "", "HTTP Authorization header")
 var httpContentType = flag.String("content-type", "application/json", "HTTP body content type")
-var httpTimeout = flag.Int("timeout", 10, "HTTP Client timeout")
+var httpTimeout = flag.Int("timeout", 10, "HTTP Client timeout in seconds")
 
 func main() {
 	log.Println("HTTP tester started")
@@ -90,7 +90,8 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		body, _ := ioutil.ReadAll(resp.Body)
-		log.Printf("%d HTTP status %d body '%s'", c.id, resp.StatusCode, string(body))
+		s := strings.ReplaceAll(string(body), "\n", " ")
+		log.Printf("%d http response status %d body '%s'", c.id, resp.StatusCode, s)
 	} else {
 		// body, _ := ioutil.ReadAll(resp.Body)
 		// log.Printf("%s: %s\n", cmd, body)
