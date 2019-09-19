@@ -31,6 +31,7 @@ The gompet-http uses the standard Go http library, while the gompet-fasthttp use
 ```
 Usage of gompet-http and gompet-fasthttp:
   -P    Report progress once a second
+  -S    Show and reset percentiles every N seconds, 0 shows at end
   -auth string
         HTTP Authorization header
   -c int

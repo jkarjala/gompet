@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -11,17 +12,22 @@ import (
 type Results struct {
 	Start        time.Time
 	LastProgress time.Time
+	LastStats    time.Time
 	Count        int64
+	LastCount    int64
 	Times        []float64
 	Results      map[string]int64
 	Errs         map[string]int64
 }
+
+var percentiles = []float64{50, 90, 95, 98, 100}
 
 // NewResults returns a newly initialized Results
 func NewResults() *Results {
 	var results Results
 	results.Start = time.Now()
 	results.LastProgress = time.Now()
+	results.LastStats = time.Now()
 	results.Times = make([]float64, 0)
 	results.Results = make(map[string]int64)
 	results.Errs = make(map[string]int64)
@@ -29,15 +35,24 @@ func NewResults() *Results {
 }
 
 // Update results from one Run
-func (results *Results) Update(res *RunResult, progress bool) {
+func (results *Results) Update(res *RunResult, progress bool, periodicStats int) {
 	results.Count++
 	now := time.Now()
 	if now.Sub(results.LastProgress) > 1*time.Second {
+		elapsed := now.Sub(results.Start).Seconds()
 		if progress {
-			elapsed := time.Since(results.Start).Seconds()
 			cps := float64(results.Count) / elapsed
 			fmt.Printf("%.0fs %d commands in %0.1f seconds, %.2f cmds/sec\r",
 				elapsed, results.Count, elapsed, cps)
+		}
+		if periodicStats > 0 && now.Sub(results.LastStats) > time.Duration(periodicStats)*time.Second {
+			if results.LastCount == 0 {
+				fmt.Println(PercentileRowHeader())
+			}
+			fmt.Println(results.PercentileRow(elapsed))
+			results.Times = results.Times[:0]
+			results.LastCount = results.Count
+			results.LastStats = now
 		}
 		results.LastProgress = now
 	}
@@ -51,8 +66,11 @@ func (results *Results) Update(res *RunResult, progress bool) {
 }
 
 // Report results to stdout
-func (results *Results) Report(progress bool) {
+func (results *Results) Report(progress bool, periodicStats int) {
 	elapsed := time.Since(results.Start).Seconds()
+	if periodicStats > 0 {
+		fmt.Println(results.PercentileRow(elapsed))
+	}
 	if progress {
 		fmt.Println("")
 	}
@@ -63,13 +81,45 @@ func (results *Results) Report(progress bool) {
 	cps := float64(results.Count) / elapsed
 	sort.Float64s(results.Times)
 	// fmt.Printf("Times:%v\n", results.Times)
-	fmt.Printf("%d commands in %0.1f seconds, %.2f cmds/sec\n", results.Count, elapsed, cps)
-	fmt.Println("Latency percentiles:")
-	PrintPercentile(results.Times, 50)
-	PrintPercentile(results.Times, 90)
-	PrintPercentile(results.Times, 95)
-	PrintPercentile(results.Times, 98)
-	PrintPercentile(results.Times, 100)
+	fmt.Printf("Total %d commands in %0.1f seconds, %.2f cmds/sec\n", results.Count, elapsed, cps)
+	if periodicStats == 0 {
+		fmt.Println("Latency percentiles:")
+		for _, p := range percentiles {
+			PrintPercentile(results.Times, p)
+		}
+	}
+}
+
+// PercentileRowHeader returns the header for the stats rows
+func PercentileRowHeader() string {
+	var res = "Secs\t"
+	for _, p := range percentiles {
+		res += fmt.Sprintf("%.0f%% ms\t", p)
+	}
+	res += "Cmds\tCmds/sec"
+	return res
+}
+
+// PercentileRow formats a row of percentiles
+func (results *Results) PercentileRow(elapsed float64) string {
+	lastElapsed := time.Since(results.LastStats).Seconds()
+	c := results.Count - results.LastCount
+	cps := float64(c) / lastElapsed
+
+	var res strings.Builder
+	res.WriteString(fmt.Sprintf("%.0f\t", elapsed))
+	sort.Float64s(results.Times)
+	for _, p := range percentiles {
+		v := Percentile(results.Times, p) * 1000
+		if v > 100 {
+			res.WriteString(fmt.Sprintf("%.0f\t", v))
+		} else {
+			res.WriteString(fmt.Sprintf("%.2f\t", v))
+		}
+
+	}
+	res.WriteString(fmt.Sprintf("%d\t%.2f", c, cps))
+	return res.String()
 }
 
 // PrintMap outputs heading and map key values in increasing alphabetical order of keys

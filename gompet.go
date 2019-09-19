@@ -29,7 +29,7 @@ var profile = flag.Bool("pprof", false, "Enable pprof web server")
 var repeat = flag.Int("r", 1, "Repeat the input N times, does not work with stdin")
 
 //var qps = flag.Int("R", 0, "Rate limit each client to N queries/sec")
-//var snapshot = flag.Int("D", 0, "Display and discard percentiles every N minutes to save memory")
+var periodicStats = flag.Int("S", 0, "Show and reset percentiles every N seconds, 0 shows at end")
 
 // NumClients exported for command implementations
 var NumClients = flag.Int("c", 1, "Number of parallel clients executing commands")
@@ -137,7 +137,7 @@ func Run(clientFactory ClientFactory) {
 	log.Println("Waiting done from collect")
 	<-done
 
-	results.Report(*progress)
+	results.Report(*progress, *periodicStats)
 
 	if *profile {
 		fmt.Println("Run ready, ctrl-c to exit")
@@ -191,7 +191,7 @@ func ClientRoutine(id int, client Client) {
 func CollectResults(results *Results) {
 	log.Println("Waiting results")
 	for res := range outputChan {
-		results.Update(res, *progress)
+		results.Update(res, *progress, *periodicStats)
 	}
 	log.Println("Results collected")
 	close(done)
