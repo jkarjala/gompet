@@ -9,17 +9,19 @@ import (
 
 // Results collects overall statistics
 type Results struct {
-	Start   time.Time
-	Count   int64
-	Times   []float64
-	Results map[string]int64
-	Errs    map[string]int64
+	Start        time.Time
+	LastProgress time.Time
+	Count        int64
+	Times        []float64
+	Results      map[string]int64
+	Errs         map[string]int64
 }
 
 // NewResults returns a newly initialized Results
 func NewResults() *Results {
 	var results Results
 	results.Start = time.Now()
+	results.LastProgress = time.Now()
 	results.Times = make([]float64, 0)
 	results.Results = make(map[string]int64)
 	results.Errs = make(map[string]int64)
@@ -29,10 +31,15 @@ func NewResults() *Results {
 // Update results from one Run
 func (results *Results) Update(res *RunResult, progress bool) {
 	results.Count++
-	if progress && (results.Count%10000) == 0 {
-		elapsed := time.Since(results.Start).Seconds()
-		cps := float64(results.Count) / elapsed
-		fmt.Printf("%d commands in %0.1f seconds, %.2f cmds/sec\r", results.Count, elapsed, cps)
+	now := time.Now()
+	if now.Sub(results.LastProgress) > 1*time.Second {
+		if progress {
+			elapsed := time.Since(results.Start).Seconds()
+			cps := float64(results.Count) / elapsed
+			fmt.Printf("%.0fs %d commands in %0.1f seconds, %.2f cmds/sec\r",
+				elapsed, results.Count, elapsed, cps)
+		}
+		results.LastProgress = now
 	}
 	results.Times = append(results.Times, res.Time)
 	if res.Res != "" {
@@ -41,13 +48,14 @@ func (results *Results) Update(res *RunResult, progress bool) {
 	if res.Err != nil {
 		results.Errs[fmt.Sprintf("%s", res.Err)]++
 	}
-
 }
 
 // Report results to stdout
-func (results *Results) Report() {
+func (results *Results) Report(progress bool) {
 	elapsed := time.Since(results.Start).Seconds()
-	fmt.Println("")
+	if progress {
+		fmt.Println("")
+	}
 	PrintMap("Result counts:", results.Results)
 	if len(results.Errs) > 0 {
 		PrintMap("Error counts:", results.Errs)
@@ -60,7 +68,7 @@ func (results *Results) Report() {
 	PrintPercentile(results.Times, 50)
 	PrintPercentile(results.Times, 90)
 	PrintPercentile(results.Times, 95)
-	PrintPercentile(results.Times, 99)
+	PrintPercentile(results.Times, 98)
 	PrintPercentile(results.Times, 100)
 }
 

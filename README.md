@@ -30,7 +30,7 @@ The gompet-http uses the standard Go http library, while the gompet-fasthttp use
 
 ```
 Usage of gompet-http and gompet-fasthttp:
-  -P    Report progress after every 10k commands
+  -P    Report progress once a second
   -auth string
         HTTP Authorization header
   -c int

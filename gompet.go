@@ -23,8 +23,8 @@ import (
 
 var filename = flag.String("f", "", "Input file name, stdin if '-'")
 var cmdTemplate = flag.String("t", "", "Command template, $1-$9 refers to tab-separated columns in input")
-var progress = flag.Bool("P", false, "Report progress after every 10k commands")
-var profile = flag.Bool("pprof", false, "enable pprof web server")
+var progress = flag.Bool("P", false, "Report progress once a second")
+var profile = flag.Bool("pprof", false, "Enable pprof web server")
 
 var repeat = flag.Int("r", 1, "Repeat the input N times, does not work with stdin")
 
@@ -133,7 +133,7 @@ func Run(clientFactory ClientFactory) {
 	log.Println("Waiting done from collect")
 	<-done
 
-	results.Report()
+	results.Report(*progress)
 
 	if *profile {
 		fmt.Println("Run ready, ctrl-c to exit")
