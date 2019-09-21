@@ -50,6 +50,7 @@ func NewResults(progress bool, periodicStats int) *Results {
 // Update results from one Run
 func (results *Results) Update(res *RunResult) {
 	results.Count++
+	results.Times = append(results.Times, res.Time)
 	now := time.Now()
 	if now.Sub(results.LastProgress) > 1*time.Second {
 		results.Elapsed = now.Sub(results.Start).Seconds()
@@ -69,7 +70,6 @@ func (results *Results) Update(res *RunResult) {
 		}
 		results.LastProgress = now
 	}
-	results.Times = append(results.Times, res.Time)
 	if res.Res != "" {
 		results.Results[res.Res]++
 	}
