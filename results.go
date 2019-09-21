@@ -13,6 +13,7 @@ type Results struct {
 	Start         time.Time
 	LastProgress  time.Time
 	LastStats     time.Time
+	Elapsed       float64
 	PeriodicStats int
 	Progress      bool
 	Count         int64
@@ -51,11 +52,11 @@ func (results *Results) Update(res *RunResult) {
 	results.Count++
 	now := time.Now()
 	if now.Sub(results.LastProgress) > 1*time.Second {
+		results.Elapsed = now.Sub(results.Start).Seconds()
 		if results.Progress {
-			elapsed := now.Sub(results.Start).Seconds()
-			cps := FormatDecimals(float64(results.Count) / elapsed)
-			fmt.Printf("%.0fs %d commands in %0.1f seconds, %s cmds/sec\r",
-				elapsed, results.Count, elapsed, cps)
+			cps := FormatDecimals(float64(results.Count) / results.Elapsed)
+			fmt.Printf("%d commands in %0.1f seconds, %s cmds/sec\r",
+				results.Count, results.Elapsed, cps)
 		} else if results.PeriodicStats > 0 &&
 			now.Sub(results.LastStats) > time.Duration(results.PeriodicStats)*time.Second {
 
@@ -117,10 +118,8 @@ func (results *Results) PercentileRowHeader() string {
 // PercentileRow formats a row of percentiles from results
 func (results *Results) PercentileRow() string {
 	// NOTE: must not modify "results"
-	elapsed := time.Since(results.Start).Seconds()
-	lastElapsed := time.Since(results.LastStats).Seconds()
 	var res strings.Builder
-	res.WriteString(fmt.Sprintf("%.0f\t", elapsed))
+	res.WriteString(fmt.Sprintf("%.0f\t", results.Elapsed))
 	sort.Float64s(results.Times)
 	for _, p := range percentiles {
 		v := Percentile(results.Times, p) * 1000
@@ -128,7 +127,7 @@ func (results *Results) PercentileRow() string {
 		res.WriteString("\t")
 	}
 	c := results.Count - results.LastCount
-	cps := FormatDecimals(float64(c) / lastElapsed)
+	cps := FormatDecimals(float64(c) / float64(results.PeriodicStats))
 	res.WriteString(fmt.Sprintf("%d\t%s", c, cps))
 	return res.String()
 }

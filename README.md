@@ -6,7 +6,8 @@ well as load testing servers.
 
 Gompet currently includes a standard HTTP client, FastHTTP client and SQL client for PostgreSQL.
 
-It is easy to add new clients and get the worker pool and statistics reporting out of the box. The library github.com/jkarjala/gompet can also be imported to applications outside of this repo.
+It is easy to add new clients and get the worker pool and statistics reporting out of the box. 
+The library github.com/jkarjala/gompet can also be imported to applications outside of this repo.
 
 ## Installation
 
@@ -16,38 +17,52 @@ go get -u github.com/jkarjala/gompet/...
 
 ## Usage
 
-The test clients receive commands from command line (each argument is a command), 
-or from a file with paramter -f (each line is a command). Use "-" as filename for stdin.
+The test clients receive commands from command line (each argument is a command, use quotes if 
+command has whitespace), or from a file with paramter -f (each line is a command). 
+Use "-" as filename for stdin. 
 
 Alternatively, a template with variables $1 - $9 can be given with -t option. In this case, the input 
 file/stdin must contain tab-separated-values to be inserted to the variables to construct the command.
 
-See data folder for a few input file examples.
+See data folder for a few input file examples. For best throughput, use files with more than 500 lines 
+(like the numebr-word examples), otherwise the file open/close overhead skews the results. A single
+command on the command line with -r option also limits the throughput, use an input file and template 
+for better throughput.
+
+The one letter options (and pprof) in usages below are implemented by the framework and common
+to all clients, the long options are specific to the clients.
 
 ### HTTP and FastHTTP Clients
 
-The gompet-http uses the standard Go http library, while the gompet-fasthttp uses the fasthttp library which is more performant but only supports HTTP/1 and requires valid certificates.
+The gompet-http uses the standard Go http library, while the gompet-fasthttp uses the fasthttp 
+library. Fasthttp is more performant but only supports HTTP/1 and reads the whole body in memory,
+gompet-http discards body unless -v option is given.
 
 ```
-Usage of gompet-http and gompet-fasthttp:
+gompet-http [options] ['cmd 1' 'cmd 2' ...]
   -P    Report progress once a second
-  -S    Show and reset percentiles every N seconds, 0 shows at end
+  -R int
+        Rate limit each client to N queries/sec (accuracy depends on OS)
+  -S int
+        Show and reset percentiles every N seconds, 0 shows at end
   -auth string
         HTTP Authorization header
   -c int
         Number of parallel clients executing commands (default 1)
   -content-type string
         HTTP body content type (default "application/json")
+  -d duration
+        Test until given duration elapses, e.g 5m for 5 minutes
   -f string
-        Input file name, stdin if not given or '-'
+        Input file name, stdin if '-'
   -pprof
-        enable pprof web server
+        Enable pprof web server
   -r int
         Repeat the input N times, does not work with stdin (default 1)
   -t string
         Command template, $1-$9 refers to tab-separated columns in input
   -timeout int
-        HTTP Client timeout (default 10)
+        HTTP Client timeout in seconds (default 10)
   -v    Verbose logging
 
 ```
@@ -80,23 +95,32 @@ gompet-http -f testdata/urls.tsv -t 'GET $1' -c 2 -r 2
 ### SQL Client
 
 ```
-Usage of gompet-sql:
-  -P    Report progress after every 10k commands
+gompet-sql [options] ['cmd 1' 'cmd 2' ...]
+  -P    Report progress once a second
+  -R int
+        Rate limit each client to N queries/sec (accuracy depends on OS)
+  -S int
+        Show and reset percentiles every N seconds, 0 shows at end
   -c int
         Number of parallel clients executing commands (default 1)
+  -d duration
+        Test until given duration elapses, e.g 5m for 5 minutes
   -discard
         Discard result set with mimimal memory allocation
   -driver string
-        Database driver, only 'postgres' supported today
+        Database driver, 'postgres' or 'mysql'
   -f string
-        Input file name, stdin if not given or '-' (default "-")
+        Input file name, stdin if '-'
   -pprof
-        enable pprof web server
+        Enable pprof web server
+  -r int
+        Repeat the input N times, does not work with stdin (default 1)
   -t string
-        Command template, $1-$9 refers to input file columns (tab-separated)
+        Command template, $1-$9 refers to tab-separated columns in input
   -url string
         SQL Connect URL
   -v    Verbose logging
+
 ```
 
 The Connect URL syntax is 

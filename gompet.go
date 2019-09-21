@@ -17,8 +17,10 @@ import (
 	_ "net/http" // for profiler
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"time"
 )
 
 var filename = flag.String("f", "", "Input file name, stdin if '-'")
@@ -27,8 +29,9 @@ var progress = flag.Bool("P", false, "Report progress once a second")
 var profile = flag.Bool("pprof", false, "Enable pprof web server")
 
 var repeat = flag.Int("r", 1, "Repeat the input N times, does not work with stdin")
+var duration = flag.Duration("d", 0, "Test until given duration elapses, e.g 5m for 5 minutes")
+var rateLimit = flag.Int("R", 0, "Rate limit each client to N queries/sec (accuracy depends on OS)")
 
-//var qps = flag.Int("R", 0, "Rate limit each client to N queries/sec")
 var periodicStats = flag.Int("S", 0, "Show and reset percentiles every N seconds, 0 shows at end")
 
 // NumClients exported for command implementations
@@ -68,8 +71,7 @@ func OpenInput() (io.Reader, *os.File) {
 	var err error
 	var file = os.Stdin
 	if flag.NArg() > 0 {
-		args := strings.Join(flag.Args(), "\n") + "\n"
-		reader := strings.NewReader(args)
+		reader := strings.NewReader(argsInput)
 		return reader, nil
 	}
 	if *filename == "-" {
@@ -86,14 +88,21 @@ func OpenInput() (io.Reader, *os.File) {
 	return nil, nil
 }
 
+var argsInput string
 var clients []Client
 var inputChan = make(chan *RunInput)
 var outputChan = make(chan *RunResult)
 var waitGroup sync.WaitGroup
+var stop bool
 var done = make(chan bool)
 
 // Run function executes the benchmark and reports results
 func Run(clientFactory ClientFactory) {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n %s [options] ['cmd 1' 'cmd 2' ...]\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 	if *profile {
 		go func() {
@@ -112,14 +121,35 @@ func Run(clientFactory ClientFactory) {
 		fmt.Println("Cannot use -r with stdin")
 		os.Exit(1)
 	}
-	if *filename != "" && flag.NArg() > 0 {
-		fmt.Println("Cannot use -f with command line commands, use -t template with -f")
-		os.Exit(1)
+	if flag.NArg() > 0 {
+		if *filename != "" {
+			fmt.Println("Cannot use -f with command line commands, use -t template with -f")
+			os.Exit(1)
+		}
+		argsInput = strings.Join(flag.Args(), "\n") + "\n"
 	}
 	if *progress && *periodicStats > 0 {
 		fmt.Println("Cannot report progress and periodic percentiles at the same time")
 		os.Exit(1)
 	}
+
+	sc := make(chan os.Signal)
+	signal.Notify(sc, os.Interrupt)
+	go func() {
+		<-sc
+		fmt.Println("Interrupted, stopping...   ")
+		stop = true
+	}()
+
+	if *duration > 0 {
+		*repeat = 1 << 30 // should be enough for a very long duration :-)
+		go func() {
+			time.Sleep(*duration)
+			fmt.Printf("%s elapsed, stopping...   \n", *duration)
+			stop = true
+		}()
+	}
+
 	err := LaunchClients(clientFactory)
 	if err != nil {
 		fmt.Println(err)
@@ -128,7 +158,7 @@ func Run(clientFactory ClientFactory) {
 	var results = NewResults(*progress, *periodicStats)
 	go CollectResults(results)
 
-	for loop := 0; loop < *repeat; loop++ {
+	for loop := 0; loop < *repeat && !stop; loop++ {
 		reader, file := OpenInput()
 		if reader == nil {
 			fmt.Println("Either 'command line' or -f filename must be given")
@@ -188,7 +218,14 @@ func ClientRoutine(id int, client Client) {
 	defer log.Printf("client %d exited\n", id)
 	defer waitGroup.Done()
 
+	var throttle <-chan time.Time
+	if *rateLimit > 0 {
+		throttle = time.Tick(time.Duration(1e6/(*rateLimit)) * time.Microsecond)
+	}
 	for input := range inputChan {
+		if *rateLimit > 0 {
+			<-throttle
+		}
 		res := client.RunCommand(input)
 		outputChan <- res
 	}
@@ -209,7 +246,7 @@ func CollectResults(results *Results) {
 func FeedCmds(reader io.Reader) error {
 	log.Println("Feeding commands")
 	bufreader := bufio.NewReader(reader)
-	for {
+	for !stop {
 		cmd, err := bufreader.ReadString('\n')
 		if err == io.EOF {
 			break
@@ -226,7 +263,7 @@ func FeedCmds(reader io.Reader) error {
 // FeedArgs feeds the clients with arguments to patch to template
 func FeedArgs(reader *csv.Reader) error {
 	log.Println("Feeding args")
-	for {
+	for !stop {
 		row, err := reader.Read()
 		if err == io.EOF {
 			break
