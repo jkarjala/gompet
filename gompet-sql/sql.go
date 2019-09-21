@@ -16,8 +16,9 @@ import (
 
 // Long options for the testers, short ones used by the main library
 var sqlDriver = flag.String("driver", "", "Database driver, 'postgres' or 'mysql'")
-var sqlURL = flag.String("url", "", "SQL Connect URL")
+var sqlURL = flag.String("url", "", "SQL Connect URL, e.g. postgres://user:pass@host/db?sslmode=disable")
 var sqlDiscard = flag.Bool("discard", false, "Discard result set with mimimal memory allocation")
+var sqlTx = flag.Int("tx", 0, "Batch N commands in one transaction")
 
 var discardResult = [][]string{{"discarded"}}
 
@@ -31,6 +32,8 @@ type myClient struct {
 	template *gompet.VarTemplate
 	style    rune
 	db       *sql.DB
+	txCount  int
+	tx       *sql.Tx
 }
 
 func clientFactory(id int, template string) (gompet.Client, error) {
@@ -58,7 +61,7 @@ func clientFactory(id int, template string) (gompet.Client, error) {
 		return nil, err
 	}
 
-	var client = myClient{id, gompet.Parse(template), style, db}
+	var client = myClient{id, gompet.Parse(template), style, db, 0, nil}
 	return &client, nil
 }
 
@@ -74,6 +77,9 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	var count int64
 	var start = time.Now()
 	if strings.ToLower(query[:6]) == "select" {
+		if *sqlTx > 0 {
+			return &gompet.RunResult{Err: errors.New("Transactions not supported for SELECT")}
+		}
 		var rows *sql.Rows
 		rows, err = c.db.Query(query, args...)
 		if err != nil {
@@ -89,9 +95,32 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 		count = int64(len(rowResult))
 	} else {
 		var result sql.Result
-		result, err = c.db.Exec(query, args...)
-		if err != nil {
-			return &gompet.RunResult{Err: err}
+		if *sqlTx > 0 {
+			if c.tx == nil {
+				c.tx, err = c.db.Begin()
+				if err != nil {
+					return &gompet.RunResult{Err: err}
+				}
+			}
+			result, err = c.tx.Exec(query, args...)
+			if err != nil {
+				c.tx.Rollback()
+				return &gompet.RunResult{Err: err}
+			}
+			c.txCount++
+			if c.txCount == *sqlTx {
+				err = c.tx.Commit()
+				if err != nil {
+					return &gompet.RunResult{Err: err}
+				}
+				c.tx = nil
+				c.txCount = 0
+			}
+		} else {
+			result, err = c.db.Exec(query, args...)
+			if err != nil {
+				return &gompet.RunResult{Err: err}
+			}
 		}
 		count, err = result.RowsAffected()
 	}
@@ -105,6 +134,12 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 
 func (c *myClient) Term() {
 	log.Println(c.id, "sql term")
+	if c.tx != nil { // This commit is not incldued in the final results...
+		err := c.tx.Commit()
+		if err != nil {
+			log.Println("Final commit failed:", err)
+		}
+	}
 	c.db.Close()
 }
 
