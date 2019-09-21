@@ -112,12 +112,20 @@ func Run(clientFactory ClientFactory) {
 		fmt.Println("Cannot use -r with stdin")
 		os.Exit(1)
 	}
+	if *filename != "" && flag.NArg() > 0 {
+		fmt.Println("Cannot use -f with command line commands, use -t template with -f")
+		os.Exit(1)
+	}
+	if *progress && *periodicStats > 0 {
+		fmt.Println("Cannot report progress and periodic percentiles at the same time")
+		os.Exit(1)
+	}
 	err := LaunchClients(clientFactory)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(2)
 	}
-	var results = NewResults()
+	var results = NewResults(*progress, *periodicStats)
 	go CollectResults(results)
 
 	for loop := 0; loop < *repeat; loop++ {
@@ -137,7 +145,7 @@ func Run(clientFactory ClientFactory) {
 	log.Println("Waiting done from collect")
 	<-done
 
-	results.Report(*progress, *periodicStats)
+	results.Report()
 
 	if *profile {
 		fmt.Println("Run ready, ctrl-c to exit")
@@ -191,7 +199,7 @@ func ClientRoutine(id int, client Client) {
 func CollectResults(results *Results) {
 	log.Println("Waiting results")
 	for res := range outputChan {
-		results.Update(res, *progress, *periodicStats)
+		results.Update(res)
 	}
 	log.Println("Results collected")
 	close(done)
