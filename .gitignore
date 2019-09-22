@@ -1,2 +1,5 @@
 .vscode/
 tmp/
+gompet-sql/__debug_bin
+gompet-http/__debug_bin
+gompet-dummy/__debug_bin
