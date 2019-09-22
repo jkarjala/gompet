@@ -21,6 +21,8 @@ type Results struct {
 	Times         []float64
 	Results       map[string]int64
 	Errs          map[string]int64
+	TargetLatency int
+	TargetRate    *int
 }
 
 var percentiles = []float64{50, 90, 95, 98, 100}
@@ -28,8 +30,9 @@ var percentiles = []float64{50, 90, 95, 98, 100}
 var statsChan chan Results
 var statsDone chan bool
 
-// NewResults returns a newly initialized Results
-func NewResults(progress bool, periodicStats int) *Results {
+// NewResults returns a newly initialized Results.
+// If periodicStats>0 and targetLantency>0 then *targetRate is adjusted at every stats display
+func NewResults(progress bool, periodicStats int, targetLatency int, targetRate *int) *Results {
 	var results Results
 	results.Start = time.Now()
 	results.LastProgress = time.Now()
@@ -39,6 +42,8 @@ func NewResults(progress bool, periodicStats int) *Results {
 	results.Times = make([]float64, 0)
 	results.Results = make(map[string]int64)
 	results.Errs = make(map[string]int64)
+	results.TargetRate = targetRate
+	results.TargetLatency = targetLatency
 	if periodicStats > 0 {
 		statsChan = make(chan Results, 2) // buffer to reduce blocking the Update
 		statsDone = make(chan bool)
@@ -117,12 +122,20 @@ func (results *Results) PercentileRowHeader() string {
 
 // PercentileRow formats a row of percentiles from results
 func (results *Results) PercentileRow() string {
-	// NOTE: must not modify "results"
 	var res strings.Builder
 	res.WriteString(fmt.Sprintf("%.0f\t", results.Elapsed))
 	sort.Float64s(results.Times)
 	for _, p := range percentiles {
 		v := Percentile(results.Times, p) * 1000
+		if p == 98 && results.TargetLatency > 0 && v > 0 {
+			// Adjust target rate to keep P98 latency under target
+			ratio := v / float64(results.TargetLatency)
+			rate := int(float64(*results.TargetRate) * ratio / 10)
+			if rate > 0 {
+				*results.TargetRate = rate
+			}
+			fmt.Println("TargetRate", *results.TargetRate)
+		}
 		res.WriteString(FormatDecimals(v))
 		res.WriteString("\t")
 	}

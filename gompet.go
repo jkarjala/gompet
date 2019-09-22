@@ -31,7 +31,7 @@ var profile = flag.Bool("pprof", false, "Enable pprof web server")
 var repeat = flag.Int("r", 1, "Repeat the input N times, does not work with stdin")
 var duration = flag.Duration("d", 0, "Test until given duration elapses, e.g 5m for 5 minutes")
 var rateLimit = flag.Int("R", 0, "Rate limit each client to N queries/sec (accuracy depends on OS)")
-
+var autoLatency = flag.Int("A", 0, "Adjust rate limit to maintain P98 at given number of ms")
 var periodicStats = flag.Int("S", 0, "Show and reset percentiles every N seconds, 0 shows at end")
 
 // NumClients exported for command implementations
@@ -155,7 +155,18 @@ func Run(clientFactory ClientFactory) {
 		fmt.Println(err)
 		os.Exit(2)
 	}
-	var results = NewResults(*progress, *periodicStats)
+
+	if *autoLatency > 0 {
+		if *rateLimit == 0 {
+			*rateLimit = 1000 / *autoLatency
+			fmt.Println("Auto-adjusting initial rate limit to", *rateLimit)
+		}
+		if *periodicStats == 0 {
+			*periodicStats = 1
+			fmt.Println("Auto-adjusting enabled periodic statistics at 1 sec interval")
+		}
+	}
+	var results = NewResults(*progress, *periodicStats, *autoLatency, rateLimit)
 	go CollectResults(results)
 
 	for loop := 0; loop < *repeat && !stop; loop++ {
@@ -218,13 +229,20 @@ func ClientRoutine(id int, client Client) {
 	defer log.Printf("client %d exited\n", id)
 	defer waitGroup.Done()
 
-	var throttle <-chan time.Time
-	if *rateLimit > 0 {
-		throttle = time.Tick(time.Duration(1e6/(*rateLimit)) * time.Microsecond)
-	}
+	var ticker *time.Ticker
+	var myRateLimit = 0
 	for input := range inputChan {
 		if *rateLimit > 0 {
-			<-throttle
+			if myRateLimit != *rateLimit {
+				us := time.Duration(1e6/(*rateLimit)) * time.Microsecond
+				fmt.Println("Ratelimit tick period", us)
+				if ticker != nil {
+					ticker.Stop()
+				}
+				ticker = time.NewTicker(us)
+				myRateLimit = *rateLimit
+			}
+			<-ticker.C
 		}
 		res := client.RunCommand(input)
 		outputChan <- res
