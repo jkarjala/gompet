@@ -63,7 +63,7 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	c.req.SetRequestURI(url)
 
 	if body != "" {
-		c.req.Header.Add("Content-Type", *httpContentType)
+		c.req.Header.Set("Content-Type", *httpContentType)
 		c.req.SetBody([]byte(body))
 	}
 	if *httpAuth != "" {
