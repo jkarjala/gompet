@@ -111,7 +111,7 @@ func (results *Results) PercentileRowHeader() string {
 	for _, p := range percentiles {
 		res += fmt.Sprintf("%.0f%% ms\t", p)
 	}
-	res += "Cmds\tCmds/sec"
+	res += "Cmds\tCmds/s\tTotal"
 	return res
 }
 
@@ -128,7 +128,7 @@ func (results *Results) PercentileRow() string {
 	}
 	c := results.Count - results.LastCount
 	cps := FormatDecimals(float64(c) / float64(results.PeriodicStats))
-	res.WriteString(fmt.Sprintf("%d\t%s", c, cps))
+	res.WriteString(fmt.Sprintf("%d\t%s\t%d", c, cps, results.Count))
 	return res.String()
 }
 
