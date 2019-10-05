@@ -1,42 +1,53 @@
-# Gompet - Go Multi-purpose Performance Evaluation Tool
+# Gompet - GO Multi-purpose Performance Evaluation Tool
 
-Gompet is a multi-core multi-purpose performance evaluation tool which can quickly generate 
-heavy load on servers using pre-defined input patterns. It is useful for benchmarking as
-well as load testing servers.
+Gompet is a multi-purpose performance evaluation tool which can quickly send 
+thousands of commands to servers using reproducibly varying input patterns.
 
-Gompet currently includes a standard HTTP client, FastHTTP client and SQL client for PostgreSQL.
+The tool has been optimized for maximum throughput, a single computer can easily 
+send tens of thousands of commands/second (with enough network bandwidth).
+Optionally the request rate can be limited to N commands/second/client which 
+enables more controlled load generation.
 
-It is easy to add new clients and get the worker pool and statistics reporting out of the box. 
-The library github.com/jkarjala/gompet can also be imported to applications outside of this repo.
+The tool reports the latency percentiles for the execution, counts of client
+dependent results, as well as counts of different errors received (if any).
+The percentiles can also be reported at regular intervals for long running tests.
+
+Gompet currently includes a standard HTTP client, optimized FastHTTP client and 
+SQL client for PostgreSQL.
+
+It is easy to add clients for new protocols, and utilize the input variable expansion, 
+worker pool management and statistics reporting from the framework. The library 
+github.com/jkarjala/gompet can also be imported to applications outside of this repo.
 
 ## Installation
+
+Assuming go executable and GOPATH/bin in your PATH:
 
 ```
 go get -u github.com/jkarjala/gompet/...
 ```
 
-## Usage
+## General usage
 
-The test clients receive commands from command line (each argument is a command, use quotes if 
+The clients receive commands from command line (each argument is a command, use quotes if 
 command has whitespace), or from a file with paramter -f (each line is a command). 
 Use "-" as filename for stdin. 
 
 Alternatively, a template with variables $1 - $9 can be given with -t option. In this case, the input 
-file/stdin must contain tab-separated-values to be inserted to the variables to construct the command.
+file/stdin must contain tab-separated-values to be inserted in the variables in the template to 
+construct the final command.
 
 See data folder for a few input file examples. For best throughput, use files with more than 500 lines 
-(like the numebr-word examples), otherwise the file open/close overhead skews the results. A single
-command on the command line with -r option also limits the throughput, use an input file and template 
-for better throughput.
+(like the number-word examples), otherwise the file open/close overhead skews the results.
 
-The one letter options (and pprof) in usages below are implemented by the framework and common
+The one letter options (and pprof) in usages below are implemented by the framework and thus common
 to all clients, the long options are specific to the clients.
 
 ### HTTP and FastHTTP Clients
 
 The gompet-http uses the standard Go http library, while the gompet-fasthttp uses the fasthttp 
-library. Fasthttp is more performant but only supports HTTP/1 and reads the whole body in memory,
-gompet-http discards body unless -v option is given.
+library. Fasthttp is 20-50% faster but only supports HTTP/1 and reads the whole body in memory,
+while the gompet-http reads and discards body unless -v option is given.
 
 ```
 gompet-http [options] ['cmd 1' 'cmd 2' ...]
@@ -117,10 +128,11 @@ gompet-sql [options] ['cmd 1' 'cmd 2' ...]
         Repeat the input N times, does not work with stdin (default 1)
   -t string
         Command template, $1-$9 refers to tab-separated columns in input
+  -tx int
+        Batch N commands in one transaction, does not work with SELECTs
   -url string
-        SQL Connect URL
+        SQL Connect URL, e.g. postgres://user:pass@host/db?sslmode=disable
   -v    Verbose logging
-
 ```
 
 The Connect URL syntax is 
@@ -129,7 +141,11 @@ The Connect URL syntax is
 postgres://user:pass@hostname/db?sslmode=disable
 ```
 
-The Command syntax for SQL client is a single SQL statement.
+The Command syntax for SQL client is a single SQL statement. A template with
+variables is used as a prepared statement instead of simple text substitution.
+Unlike SQL prepared statement, the template may contain multiple references 
+to the same variable, they will be duplicated to make the prepared statement 
+work.
 
 ## Licence
 

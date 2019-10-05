@@ -30,24 +30,31 @@ var profile = flag.Bool("pprof", false, "Enable pprof web server")
 
 var repeat = flag.Int("r", 1, "Repeat the input N times, does not work with stdin")
 var duration = flag.Duration("d", 0, "Test until given duration elapses, e.g 5m for 5 minutes")
+var delay = flag.Duration("D", 0, "Delay start of each client by given duration, e.g 5s for 5 seconds")
 var rateLimit = flag.Int("R", 0, "Rate limit each client to N queries/sec (accuracy depends on OS)")
 
 var periodicStats = flag.Int("S", 0, "Show and reset percentiles every N seconds, 0 shows at end")
 
-// NumClients exported for command implementations
-var NumClients = flag.Int("c", 1, "Number of parallel clients executing commands")
+var numClients = flag.Int("c", 1, "Number of parallel clients executing commands")
 
-// Verbose exported for command implementations
-var Verbose = flag.Bool("v", false, "Verbose logging")
+var verbose = flag.Bool("v", false, "Verbose logging")
 
-// RunInput is given to client once per input file line
-type RunInput struct {
-	Cmd  string   // command from file, nil if template
-	Args []string // empty unless template is used
+// ClientConfig is passed to the client factory when a new instance is created
+type ClientConfig struct {
+	ID         int
+	Template   *VarTemplate
+	NumClients int
+	Verbose    bool
 }
 
-// RunResult is returned from client after processing one input line
-type RunResult struct {
+// ClientInput is given to client once per input command
+type ClientInput struct {
+	Cmd  string   // command to execute, nil if template
+	Args []string // variables values for template if cmd==nil
+}
+
+// ClientResult is returned from client after processing one input line
+type ClientResult struct {
 	Res  string  // result, count of each separate value is reported
 	Time float64 // execution time in seconds, percentiles are reported
 	Err  error   // error result or nil, count of each error is reported (if any)
@@ -55,55 +62,28 @@ type RunResult struct {
 
 // Client is the interface the client must implement
 type Client interface {
-	RunCommand(in *RunInput) *RunResult
+	RunCommand(in *ClientInput) *ClientResult
 	Term()
 }
 
-// ClientFactory generates a client instance
-type ClientFactory func(id int, template string) (Client, error)
+// ClientFactory creates a client instance
+type ClientFactory func(config ClientConfig) (Client, error)
 
 func init() {
 	// Nothing to do now
 }
 
-// OpenInput opens the input file for reading
-func OpenInput() (io.Reader, *os.File) {
-	var err error
-	var file = os.Stdin
-	if flag.NArg() > 0 {
-		reader := strings.NewReader(argsInput)
-		return reader, nil
-	}
-	if *filename == "-" {
-		return io.Reader(file), nil
-	}
-	if *filename != "" {
-		file, err = os.Open(*filename)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		return io.Reader(file), file
-	}
-	return nil, nil
-}
-
 var argsInput string
 var clients []Client
-var inputChan = make(chan *RunInput)
-var outputChan = make(chan *RunResult)
+var inputChan = make(chan *ClientInput)
+var outputChan = make(chan *ClientResult)
 var waitGroup sync.WaitGroup
 var stop bool
 var done = make(chan bool)
 
-// Run function executes the benchmark and reports results
+// Run function executes the commands and reports results
 func Run(clientFactory ClientFactory) {
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n %s [options] ['cmd 1' 'cmd 2' ...]\n", os.Args[0])
-		flag.PrintDefaults()
-	}
-
-	flag.Parse()
+	Setup()
 	if *profile {
 		go func() {
 			fmt.Println("Profiler active in http://localhost:4221/debug/pprof")
@@ -111,8 +91,26 @@ func Run(clientFactory ClientFactory) {
 		}()
 	}
 
-	if !*Verbose {
-		// it seems log still does sprintfs, check for *Verbose in loops
+	results := Exec(clientFactory)
+	results.Report()
+
+	if *profile {
+		fmt.Println("Run ready, ctrl-c to exit")
+		select {} // wait forever
+	}
+}
+
+// Setup configures the execution from the command line flags
+func Setup() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n %s [options] ['cmd 1' 'cmd 2' ...]\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
+	flag.Parse()
+
+	if !*verbose {
+		// it seems log still does sprintfs, check for *verbose in loops
 		log.SetFlags(0)
 		log.SetOutput(ioutil.Discard)
 	}
@@ -132,7 +130,10 @@ func Run(clientFactory ClientFactory) {
 		fmt.Println("Cannot report progress and periodic percentiles at the same time")
 		os.Exit(1)
 	}
+}
 
+// Exec executes the commands, global flags must have been set up before this
+func Exec(clientFactory ClientFactory) *Results {
 	sc := make(chan os.Signal)
 	signal.Notify(sc, os.Interrupt)
 	go func() {
@@ -174,13 +175,29 @@ func Run(clientFactory ClientFactory) {
 
 	log.Println("Waiting done from collect")
 	<-done
+	return results
+}
 
-	results.Report()
-
-	if *profile {
-		fmt.Println("Run ready, ctrl-c to exit")
-		select {} // wait forever
+// OpenInput opens the input file for reading
+func OpenInput() (io.Reader, *os.File) {
+	var err error
+	var file = os.Stdin
+	if flag.NArg() > 0 {
+		reader := strings.NewReader(argsInput)
+		return reader, nil
 	}
+	if *filename == "-" {
+		return io.Reader(file), nil
+	}
+	if *filename != "" {
+		file, err = os.Open(*filename)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		return io.Reader(file), file
+	}
+	return nil, nil
 }
 
 func feedInput(reader io.Reader, file *os.File) {
@@ -199,10 +216,11 @@ func feedInput(reader io.Reader, file *os.File) {
 
 // LaunchClients creates clients and starts the go routines for data processing
 func LaunchClients(clientFactory ClientFactory) error {
-	clients = make([]Client, *NumClients)
+	clients = make([]Client, *numClients)
 	var err error
-	for i := 0; i < *NumClients; i++ {
-		clients[i], err = clientFactory(i, *cmdTemplate)
+	for i := 0; i < *numClients; i++ {
+		config := ClientConfig{i, Parse(*cmdTemplate), *numClients, *verbose}
+		clients[i], err = clientFactory(config)
 		if err != nil {
 			return err
 		}
@@ -255,7 +273,7 @@ func FeedCmds(reader io.Reader) error {
 			return err
 		}
 		cmd = strings.Trim(cmd, "\n")
-		inputChan <- &RunInput{Cmd: cmd}
+		inputChan <- &ClientInput{Cmd: cmd}
 	}
 	return nil
 }
@@ -271,10 +289,10 @@ func FeedArgs(reader *csv.Reader) error {
 		if err != nil {
 			return err
 		}
-		if *Verbose {
+		if *verbose {
 			log.Println("sending", row)
 		}
-		inputChan <- &RunInput{Args: row}
+		inputChan <- &ClientInput{Args: row}
 	}
 	return nil
 }

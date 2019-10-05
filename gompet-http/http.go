@@ -25,32 +25,31 @@ func main() {
 }
 
 type myClient struct {
-	id         int
-	template   *gompet.VarTemplate
+	config     gompet.ClientConfig
 	httpClient *http.Client
 }
 
-func clientFactory(id int, template string) (gompet.Client, error) {
-	log.Println(id, "http init", template)
+func clientFactory(config gompet.ClientConfig) (gompet.Client, error) {
+	log.Println(config.ID, "http init")
 
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
-		MaxIdleConnsPerHost: *gompet.NumClients,
+		MaxIdleConnsPerHost: 2, // each client has its own HTTP client
 		DisableCompression:  false,
 		DisableKeepAlives:   false,
 	}
 	tr.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
 	httpClient := &http.Client{Transport: tr, Timeout: time.Duration(*httpTimeout) * time.Second}
-	var client = myClient{id, gompet.Parse(template), httpClient}
+	var client = myClient{config, httpClient}
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
+func (c *myClient) RunCommand(in *gompet.ClientInput) *gompet.ClientResult {
 	cmd := in.Cmd
-	if c.template != nil {
-		cmd = c.template.Expand(in.Args)
+	if c.config.Template != nil {
+		cmd = c.config.Template.Expand(in.Args)
 	}
 
 	var req *http.Request
@@ -59,7 +58,7 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 
 	var ss = strings.SplitN(cmd, " ", 3)
 	if len(ss) < 2 {
-		return &gompet.RunResult{Err: fmt.Errorf("Invalid command %s, HTTP verb and URL required", cmd)}
+		return &gompet.ClientResult{Err: fmt.Errorf("Invalid command %s, HTTP verb and URL required", cmd)}
 	}
 	var primitive = strings.Trim(ss[0], "\r\t ")
 	var url = strings.Trim(ss[1], "\r\t ")
@@ -70,7 +69,7 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 
 	req, err = http.NewRequest(primitive, url, strings.NewReader(body))
 	if err != nil {
-		return &gompet.RunResult{Err: err}
+		return &gompet.ClientResult{Err: err}
 	}
 
 	if body != "" {
@@ -84,14 +83,14 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	resp, err = c.httpClient.Do(req)
 	elapsed := time.Since(start).Seconds()
 	if err != nil {
-		return &gompet.RunResult{Err: err, Time: elapsed}
+		return &gompet.ClientResult{Err: err, Time: elapsed}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		body, _ := ioutil.ReadAll(resp.Body)
 		s := strings.ReplaceAll(string(body), "\n", " ")
-		log.Printf("%d http response status %d body '%s'", c.id, resp.StatusCode, s)
+		log.Printf("%d http response status %d body '%s'", c.config.ID, resp.StatusCode, s)
 	} else {
 		// body, _ := ioutil.ReadAll(resp.Body)
 		// log.Printf("%s: %s\n", cmd, body)
@@ -99,12 +98,12 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	}
 	elapsed = time.Since(start).Seconds() // final time will include body read time
 	var res = resp.Status
-	if *gompet.Verbose {
-		log.Printf("%d http %s: %s", c.id, cmd, res)
+	if c.config.Verbose {
+		log.Printf("%d http %s: %s", c.config.ID, cmd, res)
 	}
-	return &gompet.RunResult{Res: res, Time: elapsed}
+	return &gompet.ClientResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {
-	log.Println(c.id, "http term")
+	log.Println(c.config.ID, "http term")
 }

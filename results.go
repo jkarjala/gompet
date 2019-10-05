@@ -48,7 +48,7 @@ func NewResults(progress bool, periodicStats int) *Results {
 }
 
 // Update results from one Run
-func (results *Results) Update(res *RunResult) {
+func (results *Results) Update(res *ClientResult) {
 	results.Count++
 	results.Times = append(results.Times, res.Time)
 	now := time.Now()

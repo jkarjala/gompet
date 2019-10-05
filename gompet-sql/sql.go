@@ -18,7 +18,7 @@ import (
 var sqlDriver = flag.String("driver", "", "Database driver, 'postgres' or 'mysql'")
 var sqlURL = flag.String("url", "", "SQL Connect URL, e.g. postgres://user:pass@host/db?sslmode=disable")
 var sqlDiscard = flag.Bool("discard", false, "Discard result set with mimimal memory allocation")
-var sqlTx = flag.Int("tx", 0, "Batch N commands in one transaction")
+var sqlTx = flag.Int("tx", 0, "Batch N commands in one transaction, does not work with SELECTs")
 
 var discardResult = [][]string{{"discarded"}}
 
@@ -28,16 +28,15 @@ func main() {
 }
 
 type myClient struct {
-	id       int
-	template *gompet.VarTemplate
-	style    rune
-	db       *sql.DB
-	txCount  int
-	tx       *sql.Tx
+	config  gompet.ClientConfig
+	style   rune
+	db      *sql.DB
+	txCount int
+	tx      *sql.Tx
 }
 
-func clientFactory(id int, template string) (gompet.Client, error) {
-	log.Println(id, "sql init", template)
+func clientFactory(config gompet.ClientConfig) (gompet.Client, error) {
+	log.Println(config.ID, "sql init")
 	if *sqlDriver == "" || *sqlURL == "" {
 		return nil, errors.New("Missing --driver and/or --url")
 	}
@@ -61,15 +60,15 @@ func clientFactory(id int, template string) (gompet.Client, error) {
 		return nil, err
 	}
 
-	var client = myClient{id, gompet.Parse(template), style, db, 0, nil}
+	var client = myClient{config, style, db, 0, nil}
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
+func (c *myClient) RunCommand(in *gompet.ClientInput) *gompet.ClientResult {
 	query := in.Cmd
 	var args []interface{}
-	if c.template != nil {
-		query, args = ExpandSQL(c.template, in.Args, '$')
+	if c.config.Template != nil {
+		query, args = ExpandSQL(c.config.Template, in.Args, '$')
 	}
 
 	var res string
@@ -78,19 +77,19 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	var start = time.Now()
 	if strings.ToLower(query[:6]) == "select" {
 		if *sqlTx > 0 {
-			return &gompet.RunResult{Err: errors.New("Transactions not supported for SELECT")}
+			return &gompet.ClientResult{Err: errors.New("Transactions not supported for SELECT")}
 		}
 		var rows *sql.Rows
 		rows, err = c.db.Query(query, args...)
 		if err != nil {
-			return &gompet.RunResult{Err: err}
+			return &gompet.ClientResult{Err: err}
 		}
 		rowResult, err := ReadRows(rows)
 		if err != nil {
-			return &gompet.RunResult{Err: err}
+			return &gompet.ClientResult{Err: err}
 		}
-		if *gompet.Verbose {
-			log.Printf("%d sql select result: %s", c.id, rowResult)
+		if c.config.Verbose {
+			log.Printf("%d sql select result: %s", c.config.ID, rowResult)
 		}
 		count = int64(len(rowResult))
 	} else {
@@ -99,19 +98,19 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 			if c.tx == nil {
 				c.tx, err = c.db.Begin()
 				if err != nil {
-					return &gompet.RunResult{Err: err}
+					return &gompet.ClientResult{Err: err}
 				}
 			}
 			result, err = c.tx.Exec(query, args...)
 			if err != nil {
 				c.tx.Rollback()
-				return &gompet.RunResult{Err: err}
+				return &gompet.ClientResult{Err: err}
 			}
 			c.txCount++
 			if c.txCount == *sqlTx {
 				err = c.tx.Commit()
 				if err != nil {
-					return &gompet.RunResult{Err: err}
+					return &gompet.ClientResult{Err: err}
 				}
 				c.tx = nil
 				c.txCount = 0
@@ -119,21 +118,21 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 		} else {
 			result, err = c.db.Exec(query, args...)
 			if err != nil {
-				return &gompet.RunResult{Err: err}
+				return &gompet.ClientResult{Err: err}
 			}
 		}
 		count, err = result.RowsAffected()
 	}
 	elapsed := time.Since(start).Seconds()
 	res = fmt.Sprintf("%d rows", count)
-	if *gompet.Verbose {
-		log.Printf("%d sql %s %s: %v", c.id, query, args, res)
+	if c.config.Verbose {
+		log.Printf("%d sql %s %s: %v", c.config.ID, query, args, res)
 	}
-	return &gompet.RunResult{Res: res, Time: elapsed}
+	return &gompet.ClientResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {
-	log.Println(c.id, "sql term")
+	log.Println(c.config.ID, "sql term")
 	if c.tx != nil { // This commit is not incldued in the final results...
 		err := c.tx.Commit()
 		if err != nil {

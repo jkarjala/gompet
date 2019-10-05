@@ -21,22 +21,21 @@ func main() {
 }
 
 type myClient struct {
-	id       int
-	template *gompet.VarTemplate
-	delta    float64
+	config gompet.ClientConfig
+	delta  float64
 }
 
-func clientFactory(id int, template string) (gompet.Client, error) {
-	log.Println(id, "Dummy init", template)
+func clientFactory(config gompet.ClientConfig) (gompet.Client, error) {
+	log.Println(config.ID, "Dummy init")
 
-	var client = myClient{id, gompet.Parse(template), 0}
+	var client = myClient{config, 0}
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
+func (c *myClient) RunCommand(in *gompet.ClientInput) *gompet.ClientResult {
 	cmd := in.Cmd
-	if c.template != nil {
-		cmd = c.template.Expand(in.Args)
+	if c.config.Template != nil {
+		cmd = c.config.Template.Expand(in.Args)
 	}
 
 	_ = cmd
@@ -44,15 +43,15 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 		time.Sleep(time.Duration(*nsDelay))
 	}
 
-	if *gompet.Verbose {
+	if c.config.Verbose {
 		log.Println(cmd)
 	}
 	var res = fmt.Sprintf("%d OK", len(cmd))
 	var elapsed = *nsMax/1E9*rand.Float64() + c.delta
 	c.delta += *nsSlow / 1E9
-	return &gompet.RunResult{Res: res, Time: elapsed}
+	return &gompet.ClientResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {
-	log.Println(c.id, "Dummy term")
+	log.Println(c.config.ID, "Dummy term")
 }

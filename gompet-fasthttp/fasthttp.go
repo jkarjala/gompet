@@ -22,27 +22,26 @@ func main() {
 }
 
 type myClient struct {
-	id         int
-	template   *gompet.VarTemplate
+	config     gompet.ClientConfig
 	req        *fasthttp.Request
 	res        *fasthttp.Response
 	httpClient *fasthttp.Client
 }
 
-func clientFactory(id int, template string) (gompet.Client, error) {
-	log.Println(id, "fasthttp init", template)
+func clientFactory(config gompet.ClientConfig) (gompet.Client, error) {
+	log.Println(config.ID, "fasthttp init")
 
 	var req = fasthttp.AcquireRequest()
 	var res = fasthttp.AcquireResponse()
 	var httpClient = &fasthttp.Client{}
-	var client = myClient{id, gompet.Parse(template), req, res, httpClient}
+	var client = myClient{config, req, res, httpClient}
 	return &client, nil
 }
 
-func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
+func (c *myClient) RunCommand(in *gompet.ClientInput) *gompet.ClientResult {
 	cmd := in.Cmd
-	if c.template != nil {
-		cmd = c.template.Expand(in.Args)
+	if c.config.Template != nil {
+		cmd = c.config.Template.Expand(in.Args)
 	}
 
 	var err error
@@ -75,21 +74,21 @@ func (c *myClient) RunCommand(in *gompet.RunInput) *gompet.RunResult {
 	err = c.httpClient.Do(c.req, c.res)
 	elapsed := time.Since(start).Seconds()
 	if err != nil {
-		return &gompet.RunResult{Err: err, Time: elapsed}
+		return &gompet.ClientResult{Err: err, Time: elapsed}
 	}
 	status := c.res.StatusCode()
 	resBody := c.res.Body()
 	if status < 200 || status > 299 {
-		log.Printf("%d fasthttp status %d body '%s'", c.id, status, string(resBody))
+		log.Printf("%d fasthttp status %d body '%s'", c.config.ID, status, string(resBody))
 	}
 	elapsed = time.Since(start).Seconds() // final time will include body read time
 	var res = fmt.Sprintf("%d %s", status, http.StatusText(status))
-	if *gompet.Verbose {
-		log.Printf("%d fasthttp %s '%s' body '%s'", c.id, cmd, res, string(resBody))
+	if c.config.Verbose {
+		log.Printf("%d fasthttp %s '%s' body '%s'", c.config.ID, cmd, res, string(resBody))
 	}
-	return &gompet.RunResult{Res: res, Time: elapsed}
+	return &gompet.ClientResult{Res: res, Time: elapsed}
 }
 
 func (c *myClient) Term() {
-	log.Println(c.id, "fasthttp term")
+	log.Println(c.config.ID, "fasthttp term")
 }
