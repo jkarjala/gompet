@@ -99,16 +99,17 @@ Run a single HTTP PUT command via command line with geompet-fasthttp and show ve
 gompet-fasthttp -v 'PUT http://httpbin.org/put { "some" : "put" }'
 ```
 
-Run HTTP commands from http.txt with verbose output:
+Run HTTP commands from http.txt with verbose output (start the gompet-httpserver first):
 
 ```
-gompet-http -f testdata/http.txt -v
+gompet-fasthttp -f testdata/http.txt -v
 ```
 
-Run HTTP commands with template and the URLs from urls.tsv 
-with 2 parallel clients and repeat the file twice: 
+Run HTTP commands with template and the URLs from urls.tsv, 
+using 20 parallel clients, each sending at rate of 50 requests/second,
+repeating the input file 2000 times, report statistics every second: 
 ```
-gompet-http -f testdata/urls.tsv -t 'GET $1' -c 2 -r 2
+gompet-fasthttp -f testdata/urls.tsv -t 'GET $1' -c 20 -R 50 -r 2000 -S 1
 ```
 
 ### SQL Client

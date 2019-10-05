@@ -1,8 +1,8 @@
-GET http://httpbin.org/get
-GET http://httpbin.org/status/404
-GET http://httpbin.org/status/201
-GET http://httpbin.org/status/503
-PUT http://httpbin.org/put { "some" : "put" }
-POST http://httpbin.org/post { "some" : "post" }
-DELETE http://httpbin.org/delete
-patch http://httpbin.org/patch { "some" : "patch" }
+GET http://localhost:4200/get
+GET http://localhost:4200/status/404
+GET http://localhost:4200/status/201
+GET http://localhost:4200/status/503
+PUT http://localhost:4200/put { "some" : "put" }
+POST http://localhost:4200/post { "some" : "post" }
+DELETE http://localhost:4200/delete
+patch http://localhost:4200/patch { "some" : "patch" }

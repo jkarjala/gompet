@@ -1,4 +1,4 @@
-http://httpbin.org/get
-http://httpbin.org/status/404
-http://httpbin.org/status/201
-http://httpbin.org/status/503
+http://localhost:4200/get
+http://localhost:4200/status/404
+http://localhost:4200/status/201
+http://localhost:4200/status/503
