@@ -231,6 +231,12 @@ func LaunchClients(clientFactory ClientFactory) error {
 
 // ClientRoutine is the processing function for data processing
 func ClientRoutine(id int, client Client) {
+	if *delay > 0 {
+		d := time.Duration(int(*delay) * id)
+		log.Printf("client %d delayed by %v\n", id, d)
+		time.Sleep(d)
+	}
+
 	log.Printf("client %d started\n", id)
 	waitGroup.Add(1)
 	defer log.Printf("client %d exited\n", id)

@@ -4,9 +4,7 @@ Gompet is a multi-purpose performance evaluation tool which can quickly send
 thousands of commands to servers using reproducibly varying input patterns.
 
 The tool has been optimized for maximum throughput, a single computer can easily 
-send tens of thousands of commands/second (with enough network bandwidth).
-Optionally the request rate can be limited to N commands/second/client which 
-enables more controlled load generation.
+send tens of thousands of commands per second (given enough network bandwidth).
 
 The tool reports the latency percentiles for the execution, counts of client
 dependent results, as well as counts of different errors received (if any).
@@ -43,6 +41,14 @@ See data folder for a few input file examples. For best throughput, use files wi
 The one letter options (and pprof) in usages below are implemented by the framework and thus common
 to all clients, the long options are specific to the clients.
 
+By default the tool sends commands as quickly as it can using a single client. 
+The number of parallel clients can be configured with the -c option. Optionally the 
+request rate of each client can be limited to N commands/second using the -R option. 
+The rate limit is accurate up to 500 on Windows and up to 4000 on Linux, 
+increase the number of clients for more load. The load can be ramped up slowly
+with the -D option, a new client is started once per given duration.
+
+
 ### HTTP and FastHTTP Clients
 
 The gompet-http uses the standard Go http library, while the gompet-fasthttp uses the fasthttp 
@@ -51,6 +57,8 @@ while the gompet-http reads and discards body unless -v option is given.
 
 ```
 gompet-http [options] ['cmd 1' 'cmd 2' ...]
+  -D duration
+        Delay start of each client by given duration, e.g 5s for 5 seconds
   -P    Report progress once a second
   -R int
         Rate limit each client to N queries/sec (accuracy depends on OS)
@@ -107,6 +115,8 @@ gompet-http -f testdata/urls.tsv -t 'GET $1' -c 2 -r 2
 
 ```
 gompet-sql [options] ['cmd 1' 'cmd 2' ...]
+  -D duration
+        Delay start of each client by given duration, e.g 5s for 5 seconds
   -P    Report progress once a second
   -R int
         Rate limit each client to N queries/sec (accuracy depends on OS)
