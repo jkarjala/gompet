@@ -1,13 +1,16 @@
 # Gompet - GO Multi-purpose Performance Evaluation Tool
 
 Gompet is a multi-purpose performance evaluation tool which can quickly send 
-thousands of commands to servers using reproducibly varying input patterns.
+thousands of commands to servers using different clients and varying input 
+patterns. Command templates enable easy comparison of different client 
+protocols and/or client implementations with the same input data.
 
 The tool has been optimized for maximum throughput, a single computer can easily 
-send tens of thousands of commands per second (given enough network bandwidth).
+send tens of thousands of commands per second using multiple parallel clients
+(given enough network bandwidth).
 
-The tool reports the latency percentiles for the execution, counts of client
-dependent results, as well as counts of different errors received (if any).
+The tool reports the latency percentiles for the execution, counts of 
+command results, as well as counts of different errors received (if any).
 The percentiles can also be reported at regular intervals for long running tests.
 
 Gompet currently includes a standard HTTP client, optimized FastHTTP client and 
@@ -29,17 +32,23 @@ go get -u github.com/jkarjala/gompet/...
 
 The clients receive commands from command line (each argument is a command, use quotes if 
 command has whitespace), or from a file with paramter -f (each line is a command). 
-Use "-" as filename for stdin. 
+Use "-" as filename for stdin. The commands are distributed to clients in random
+order, therefore they should not depend on each other if multiple clients are used.
 
-Alternatively, a template with variables $1 - $9 can be given with -t option. In this case, the input 
-file/stdin must contain tab-separated-values to be inserted in the variables in the template to 
-construct the final command.
+Alternatively, a command template with variables $1 - $9 can be given with -t option. 
+In this case, the input file/stdin must contain tab-separated-values to be inserted 
+in the variables in the template to construct the final command. This is very useful
+when testing different client protocols (e.g. http vs sql), the same variable 
+input data can be used with different clients, only the template
+needs to change.
 
-See data folder for a few input file examples. For best throughput, use files with more than 500 lines 
-(like the number-word examples), otherwise the file open/close overhead skews the results.
+See data folder for a few input file examples. For best throughput, use files 
+with more than 500 lines (like the number-word examples), otherwise the file 
+open/close overhead skews the results.
 
-The one letter options (and pprof) in usages below are implemented by the framework and thus common
-to all clients, the long options are specific to the clients.
+The one letter options (and pprof) in usages below are implemented by the 
+framework and thus common to all clients, the long options are specific 
+to the clients.
 
 By default the tool sends commands as quickly as it can using a single client. 
 The number of parallel clients can be configured with the -c option. Optionally the 
