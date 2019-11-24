@@ -2,6 +2,7 @@ mkdir -p tmp
 mkdir -p tmp/windows
 mkdir -p tmp/linux
 mkdir -p tmp/darwin
+go get -u ./...
 for tool in $(find . -type d -name "gompet-*") 
 do
   echo Building $tool
