@@ -10,7 +10,8 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@master
       - name: Generate the artifacts
-        run:  ./build-binaries.sh
+        run: |
+          bash ./build-binaries.sh -xe
       - name: Upload the artifacts
         uses: skx/github-action-publish-binaries@master
         env:
