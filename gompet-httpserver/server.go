@@ -1,3 +1,6 @@
+// This file is part of Gompet - Copyright 2019 Jari Karjala - www.jpkware.com
+// SPDX-License-Identifier: GPLv3-only
+
 // Simple fasthttp server for testing the HTTP client
 package main
 

@@ -1,4 +1,5 @@
-// Copyright 2019 Jari Karjala - www.jpkware.com
+// This file is part of Gompet - Copyright 2019 Jari Karjala - www.jpkware.com
+// SPDX-License-Identifier: GPLv3-only
 
 // Package gompet (Go Multi-purpose Performance Evaluation Tool) provides a multi-core
 // benchmarking skeleton for use in different benchmarking clients.

@@ -1,3 +1,7 @@
+// This file is part of Gompet - Copyright 2019 Jari Karjala - www.jpkware.com
+// SPDX-License-Identifier: GPLv3-only
+
+// HTTP Client using Go standard library
 package main
 
 import (
