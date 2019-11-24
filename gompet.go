@@ -139,8 +139,13 @@ func Exec(clientFactory ClientFactory) *Results {
 	signal.Notify(sc, os.Interrupt)
 	go func() {
 		<-sc
-		fmt.Println("Interrupted, stopping...   ")
+		fmt.Println("Interrupted, stopping...      ")
 		stop = true
+		go func() {
+			time.Sleep(time.Duration(5 * time.Second))
+			fmt.Println("Test did not stop in 5 seconds, exiting now!")
+			os.Exit(100)
+		}()
 	}()
 
 	if *duration > 0 {
