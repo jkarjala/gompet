@@ -1,4 +1,6 @@
-# Gompet - GO Multi-purpose Performance Evaluation Tool
+# Gompet - Go Multi-purpose Performance Evaluation Tool
+
+![](https://github.com/jkarjala/gompet/workflows/Go%20Build/badge.svg)
 
 Gompet is a multi-purpose performance evaluation tool which can quickly send 
 thousands of commands to servers using different clients and varying input 
@@ -25,7 +27,7 @@ github.com/jkarjala/gompet can also be imported to applications outside of this 
 Assuming go executable and GOPATH/bin in your PATH:
 
 ```
-go get -u github.com/jkarjala/gompet/...
+go install -i github.com/jkarjala/gompet/...
 ```
 
 ## General usage
