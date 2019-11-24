@@ -11,6 +11,6 @@ do
   GOOS=darwin GOARCH=amd64 go build -o tmp/darwin/$tool $tool
 done
 cd tmp
-zip gompet-windows.zip windows/*
-zip gompet-linux.zip linux/*
-zip gompet-darwin.zip darwin/*
+zip -j gompet-windows-amd64.zip windows/*
+zip -j gompet-linux-amd64.zip linux/*
+zip -j gompet-darwin-amd64.zip darwin/*
