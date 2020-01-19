@@ -26,9 +26,9 @@ github.com/jkarjala/gompet can also be imported to applications outside of this 
 
 64 bit binary releases:
 
-- Windows: [gompet-windows-amd64.zip](https://github.com/jkarjala/gompet/releases/download/latest/gompet-windows-amd64.zip)
-- Linux: [gompet-linux-amd64.zip](https://github.com/jkarjala/gompet/releases/download/latest/gompet-linux-amd64.zip)
-- Mac: [gompet-darwin-amd64.zip](https://github.com/jkarjala/gompet/releases/download/latest/gompet-darwin-amd64.zip)
+- Windows: [gompet-windows-amd64.zip](https://github.com/jkarjala/gompet/releases/latest/download/gompet-windows-amd64.zip)
+- Linux: [gompet-linux-amd64.zip](https://github.com/jkarjala/gompet/releases/latest/download/gompet-linux-amd64.zip)
+- Mac: [gompet-darwin-amd64.zip](https://github.com/jkarjala/gompet/releases/latest/download/gompet-darwin-amd64.zip)
 
 
 Installation from sources, assuming go executable and GOPATH/bin in your PATH:
