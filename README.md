@@ -24,7 +24,14 @@ github.com/jkarjala/gompet can also be imported to applications outside of this 
 
 ## Installation
 
-Assuming go executable and GOPATH/bin in your PATH:
+64 bit binary releases:
+
+- Windows: [gompet-windows-amd64.zip](https://github.com/jkarjala/gompet/releases/download/latest/gompet-windows-amd64.zip)
+- Linux: [gompet-linux-amd64.zip](https://github.com/jkarjala/gompet/releases/download/latest/gompet-linux-amd64.zip)
+- Mac: [gompet-darwin-amd64.zip](https://github.com/jkarjala/gompet/releases/download/latest/gompet-darwin-amd64.zip)
+
+
+Installation from sources, assuming go executable and GOPATH/bin in your PATH:
 
 ```
 go install -i github.com/jkarjala/gompet/...
@@ -171,6 +178,6 @@ work.
 
 ## Licence
 
-Gompet Copyright 2019 [Jari Karjala](https://www.jarikarjala.com/). 
+Gompet Copyright 2019-2020 [Jari Karjala](https://www.jarikarjala.com/). 
 
 Gompet is licensed under [GNU General Public License v3](LICENSE).
